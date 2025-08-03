@@ -17,15 +17,23 @@ pub struct Config {
     /// Insert linebreak after each comma ','
     pub linebreak_after_comma: bool,
     /// Insert linebreak after each left parenthesis '('
-    pub linebreak_after_left_parenthesis: bool,
+    pub linebreak_after_lparenthesis: bool,
     /// Insert linebreak after each left brace '{'
-    pub linebreak_after_left_brace: bool,
+    pub linebreak_after_lbrace: bool,
     /// Insert linebreak after each left bracket '['
-    pub linebreak_after_left_bracket: bool,
+    pub linebreak_after_lbracket: bool,
     /// Insert linebreak after each semicolon
     pub linebreak_after_semicolon: bool,
     /// Insert linebreak after specifieds SQL Keywords
     pub linebreak_after_keywords: Vec<String>,
+    /// Insert linebreak after specifieds SQL Keywords
+    pub linebreak_before_keywords: Vec<String>,
+    /// Insert indentations between the parenthesis
+    pub indentation_parenthesis: bool,
+    /// Insert indentations between the braces
+    pub indentation_braces: bool,
+    /// Insert indentations between the brackets
+    pub indentation_brackets: bool
 }
 
 impl Default for Config {
@@ -34,11 +42,15 @@ impl Default for Config {
             database: "generic".to_string(),
             keywords_case: "uppercase".to_string(),
             linebreak_after_comma: true,
-            linebreak_after_left_parenthesis: true,
-            linebreak_after_left_brace: true,
-            linebreak_after_left_bracket: false,
+            linebreak_after_lparenthesis: true,
+            linebreak_after_lbrace: true,
+            linebreak_after_lbracket: false,
             linebreak_after_semicolon: true,
             linebreak_after_keywords: vec![],
+            linebreak_before_keywords: vec![],
+            indentation_parenthesis: true,
+            indentation_braces: true,
+            indentation_brackets: false
         }
     }
 }
@@ -53,7 +65,13 @@ impl Config {
         let write_files = |folder_path: &mut PathBuf| -> Result<(), String> {
             let _ = write_gitignore(folder_path)?;
             folder_path.pop();
-            write_config(folder_path, &Config::default())
+
+            if !fs::exists(folder_path.join("config.json")).unwrap_or(true) {
+                write_config(folder_path, &Config::default())
+            }
+            else {
+                Ok(())
+            }
         };
 
         if !fs::exists(&path).unwrap_or(false) {
@@ -100,7 +118,7 @@ fn write_config(folder_path: &mut PathBuf, config: &Config) -> Result<(), String
     folder_path.push("config.json");
 
     let mut file = OpenOptions::new()
-        .create(true).write(true).open(&folder_path)
+        .create(true).write(true).truncate(true).open(&folder_path)
         .map_err(|e| format!("{}", e))?;
 
     let json_object = serde_json::to_string(config)
