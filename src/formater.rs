@@ -1,10 +1,14 @@
-use crate::Settings;
+use std::fs::OpenOptions;
+use std::io::{Read, Write};
+use std::path::PathBuf;
+
+use crate::settings::Settings;
 use sqlparser::dialect::{dialect_from_str, GenericDialect};
-use sqlparser::tokenizer::{Token, Tokenizer};
+use sqlparser::tokenizer::{Token, Tokenizer, Whitespace};
 use sqlparser::keywords::Keyword;
 
 #[derive(Debug, Clone)]
-pub struct IndentationCount(usize, String);
+struct IndentationCount(usize, String);
 
 impl IndentationCount {
     pub fn new(value: &str) -> IndentationCount {
@@ -34,7 +38,14 @@ impl IndentationCount {
     }
 }
 
-pub fn formater(settings: Settings, script: String) -> Result<String, String> {
+pub fn formater(settings: &Settings, script_path: PathBuf) -> Result<(), String> {
+    let mut script = String::new();
+    let mut file = OpenOptions::new().read(true).open(&script_path)
+        .map_err(|e| format!("{}", e))?;
+
+    let _ = file.read_to_string(&mut script)
+        .map_err(|e| format!("{}", e))?;
+
     let dialect = dialect_from_str(&settings.database)
         .unwrap_or(Box::new(GenericDialect::default()));
 
@@ -42,10 +53,20 @@ pub fn formater(settings: Settings, script: String) -> Result<String, String> {
         .tokenize()
         .map_err(|e| format!("{}", e))?;
 
-    process_format(settings, tokens)
+    match process_format(settings, tokens) {
+        Ok(formated_script) => {
+            let mut file = OpenOptions::new().truncate(true).write(true).open(&script_path)
+                .map_err(|e| format!("{}", e))?;
+
+            let _ = file.write(formated_script.as_bytes())
+                .map_err(|e| format!("{}", e))?;
+            Ok(())
+        },
+        Err(error) => Err(error)
+    }
 }
 
-fn process_format(settings: Settings, tokens: Vec<Token>) -> Result<String, String> {
+fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, String> {
     let mut indentation = IndentationCount::new(&settings.tabulation_format);
     let mut buffer = String::new();
     let mut result = String::new();
@@ -192,9 +213,17 @@ fn process_format(settings: Settings, tokens: Vec<Token>) -> Result<String, Stri
                 buffer.push(']');
             },
             Token::Whitespace(whitespace) => {
-                if !result.ends_with("\n") && !result.ends_with("\t") {
-                    buffer.push_str(&format!("{}", whitespace));
+                match whitespace {
+                    Whitespace::Newline | Whitespace::Tab => {
+                        if !result.ends_with("\n") && !result.ends_with("\t") {
+                            buffer.push_str(&format!("{}", whitespace));
+                        }
+                    },
+                    _ => {
+                        buffer.push_str(&format!("{}", whitespace));
+                    }
                 }
+                
             }
             other_token => {
                 if result.ends_with("\n") {

@@ -75,21 +75,33 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn init() -> Result<(), String> {
-        let mut path = env::current_dir()
-            .map_err(|e| format!("{}", e))?;
-        
-        path.push(FOLDER_PATH);
+    pub fn init(folder_path: Option<PathBuf>) -> Result<Settings, String> {
+        let mut path: PathBuf;
+        match folder_path {
+            Some(folder_path) => path = folder_path,
+            None => {
+                path = env::current_dir()
+                    .map_err(|e| format!("{}", e))?;
+            
+                path.push(FOLDER_PATH);
+            }
+        }
 
-        let write_files = |folder_path: &mut PathBuf| -> Result<(), String> {
+        let write_files = |folder_path: &mut PathBuf| -> Result<Settings, String> {
             let _ = write_gitignore(folder_path)?;
             folder_path.pop();
+            let setting_path = folder_path.join("settings.json");
 
-            if !fs::exists(folder_path.join("settings.json")).unwrap_or(true) {
-                write_settings(folder_path, &Settings::default())
+            if !fs::exists(&setting_path).unwrap_or(true) {
+                let settings = Settings::default();
+                let _ = write_settings(folder_path, &settings);
+                Ok(settings)
             }
             else {
-                Ok(())
+                match Settings::from_file(&setting_path.display().to_string()) {
+                    Ok(setting) => Ok(setting),
+                    Err(setting) => Ok(setting)
+                }
             }
         };
 
