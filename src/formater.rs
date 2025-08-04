@@ -1,14 +1,14 @@
-use crate::Config;
+use crate::Settings;
 use sqlparser::dialect::{dialect_from_str, GenericDialect};
 use sqlparser::tokenizer::{Token, Tokenizer};
 use sqlparser::keywords::Keyword;
 
-#[derive(Debug, Clone, Copy)]
-pub struct IndentationCount(usize);
+#[derive(Debug, Clone)]
+pub struct IndentationCount(usize, String);
 
 impl IndentationCount {
-    pub fn new() -> IndentationCount {
-        IndentationCount(0)
+    pub fn new(value: &str) -> IndentationCount {
+        IndentationCount(0, String::from(value))
     }
 
     pub fn add(&mut self) {
@@ -26,27 +26,27 @@ impl IndentationCount {
 
     pub fn get_string(&self, skip: Option<usize>) -> String {
         if let Some(number) = skip {
-            "\t".repeat(self.0.saturating_sub(number))
+            self.1.repeat(self.0.saturating_sub(number))
         }
         else {
-            "\t".repeat(self.0)
+            self.1.repeat(self.0)
         }
     }
 }
 
-pub fn formater(config: Config, script: String) -> Result<String, String> {
-    let dialect = dialect_from_str(&config.database)
+pub fn formater(settings: Settings, script: String) -> Result<String, String> {
+    let dialect = dialect_from_str(&settings.database)
         .unwrap_or(Box::new(GenericDialect::default()));
 
     let tokens = Tokenizer::new(dialect.as_ref(), &script)
         .tokenize()
         .map_err(|e| format!("{}", e))?;
 
-    process_format(config, tokens)
+    process_format(settings, tokens)
 }
 
-fn process_format(config: Config, tokens: Vec<Token>) -> Result<String, String> {
-    let mut indentation = IndentationCount::new();
+fn process_format(settings: Settings, tokens: Vec<Token>) -> Result<String, String> {
+    let mut indentation = IndentationCount::new(&settings.tabulation_format);
     let mut buffer = String::new();
     let mut result = String::new();
     let mut index = 0usize;
@@ -54,31 +54,60 @@ fn process_format(config: Config, tokens: Vec<Token>) -> Result<String, String> 
     while index < tokens.len() {
         match &tokens[index] {
             Token::Word(word) => {
-                if result.ends_with("\n") {
-                    buffer.push_str(&indentation.get_string(None));
+                match (result.ends_with("\n"), settings.indentation_clauses, word.keyword) {
+                    (true, true, Keyword::SELECT) => {
+                        buffer.push_str(&indentation.get_string(None));
+                        indentation.add();
+                    },
+                    (false, true, Keyword::SELECT) => {
+                        buffer.push_str(&indentation.get_string(None));
+                        indentation.add();
+                    },
+                    (true, true, Keyword::FROM | Keyword::WHERE) => {
+                        buffer.push_str(&indentation.get_string(Some(1)));
+                    },
+                    (false, true, Keyword::FROM | Keyword::WHERE) => {
+                        buffer.push('\n');
+                        buffer.push_str(&indentation.get_string(Some(1)));
+                    },
+                    (true, _, _) => {
+                        buffer.push_str(&indentation.get_string(None));
+                    },
+                    (false, _, _) => {}
                 }
 
-                let value: String;
-                match (word.keyword, config.keywords_case.as_str()) {
-                    (Keyword::NoKeyword, _) => value = word.value.clone(),
-                    (_, "lowercase" | "lower") => value = word.value.to_lowercase(),
-                    (_, "uppercase" | "upper") => value = word.value.to_uppercase(),
-                    (_, case) => { return Err(format!("Unsupported case : {} in {:?}", case, config)) }
+                let case = settings.keywords_case.as_str();
+                if let (Keyword::NoKeyword, _) = (word.keyword, case) {
+                    buffer.push_str(&word.value.clone())
                 }
+                else {
+                    let value: String;
+                    match case {
+                        "lowercase" | "lower" => value = word.value.to_lowercase(),
+                        "uppercase" | "upper" => value = word.value.to_uppercase(),
+                        _ => {return Err(format!("Unsupported case : {} in settings :\n{:?}", case, settings))}
+                    }
 
-                if config.linebreak_before_keywords.contains(&value) {
-                    buffer.push('\n');
-                }
+                    if !result.ends_with("\n")
+                        && (settings.linebreak_before_keywords.contains(&value) 
+                            || settings.linebreak_before_keywords.contains(&"*".to_string()))
+                    {
+                        buffer.push('\n');
+                    }
 
-                buffer.push_str(&value);
+                    buffer.push_str(&value);
 
-                if config.linebreak_after_keywords.contains(&value) {
-                    buffer.push('\n');
+                    if !result.ends_with("\n")
+                        && (settings.linebreak_after_keywords.contains(&value)
+                            || settings.linebreak_after_keywords.contains(&"*".to_string()))
+                    {
+                        buffer.push('\n');
+                    }
                 }
             },
             Token::EOF => {},
             Token::Comma => {
-                if config.linebreak_after_comma {
+                if settings.linebreak_after_comma {
                     buffer.push_str(",\n");
                 }
                 else {
@@ -86,7 +115,7 @@ fn process_format(config: Config, tokens: Vec<Token>) -> Result<String, String> 
                 }
             },
             Token::SemiColon => {
-                if config.linebreak_after_semicolon {
+                if settings.linebreak_after_semicolon {
                     buffer.push_str(";\n")
                 }
                 else {
@@ -94,69 +123,69 @@ fn process_format(config: Config, tokens: Vec<Token>) -> Result<String, String> 
                 }
             }
             Token::LParen => {
-                if config.linebreak_after_lparenthesis {
+                if settings.linebreak_after_lparenthesis {
                     buffer.push_str("(\n");
                 }
                 else {
                     buffer.push('(');
                 }
 
-                if config.indentation_parenthesis {
+                if settings.indentation_parenthesis {
                     indentation.add();
                 }
             },
             Token::LBrace => {
-                if config.linebreak_after_lbrace {
+                if settings.linebreak_after_lbrace {
                     buffer.push_str("{\n");
                 }
                 else {
                     buffer.push('{');
                 }
 
-                if config.indentation_braces {
+                if settings.indentation_braces {
                     indentation.add();
                 }
             },
             Token::LBracket => {
-                if config.linebreak_after_lbracket {
+                if settings.linebreak_after_lbracket {
                     buffer.push_str("[\n");
                 }
                 else {
                     buffer.push('[');
                 }
 
-                if config.indentation_brackets {
+                if settings.indentation_brackets {
                     indentation.add();
                 }
             },
             Token::RParen => {
-                if config.linebreak_after_lparenthesis {
+                if settings.linebreak_after_lparenthesis {
                     buffer.push('\n');
                 }
 
-                if config.indentation_parenthesis {
+                if settings.indentation_parenthesis {
                     buffer.push_str(&indentation.get_string(Some(1)));
                     indentation.sub();
                 }
                 buffer.push(')');
             },
             Token::RBrace => {
-                if config.linebreak_after_lbrace {
+                if settings.linebreak_after_lbrace {
                     buffer.push('\n');
                 }
 
-                if config.indentation_braces {
+                if settings.indentation_braces {
                     buffer.push_str(&indentation.get_string(Some(1)));
                     indentation.sub();
                 }
                 buffer.push('}');
             },
             Token::RBracket => {
-                if config.linebreak_after_lbracket {
+                if settings.linebreak_after_lbracket {
                     buffer.push('\n');
                 }
 
-                if config.indentation_brackets {
+                if settings.indentation_brackets {
                     buffer.push_str(&indentation.get_string(Some(1)));
                     indentation.sub();
                 }

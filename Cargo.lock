@@ -43,9 +43,9 @@ checksum = "32a282da65faaf38286cf3be983213fcf1d2e2a58700e808f83f4ea9a4804bc0"
 
 [[package]]
 name = "mylog"
-version = "0.1.0"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e38d0854a7bb9853d4c034d26b8123f391e09d150dd5150e6d3ee4a34e003a8e"
+checksum = "5ce1d5241efff0c4befec0d0cffe5429345865e66dba8520990952260c5e7ef0"
 dependencies = [
  "libc",
 ]
