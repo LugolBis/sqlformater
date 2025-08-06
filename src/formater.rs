@@ -98,7 +98,7 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                 }
 
                 let case = settings.keywords_case.as_str();
-                if let (Keyword::NoKeyword, _) = (word.keyword, case) {
+                if word.keyword == Keyword::NoKeyword {
                     buffer.push_str(&word.value.clone())
                 }
                 else {
@@ -118,9 +118,8 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
 
                     buffer.push_str(&value);
 
-                    if !result.ends_with("\n")
-                        && (settings.linebreak_after_keywords.contains(&value)
-                            || settings.linebreak_after_keywords.contains(&"*".to_string()))
+                    if settings.linebreak_after_keywords.contains(&value)
+                        || settings.linebreak_after_keywords.contains(&"*".to_string())
                     {
                         buffer.push('\n');
                     }
@@ -136,8 +135,9 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                 }
             },
             Token::SemiColon => {
+                indentation.sub();
                 if settings.linebreak_after_semicolon {
-                    buffer.push_str(";\n")
+                    buffer.push_str(";\n\n")
                 }
                 else {
                     buffer.push(';');
@@ -219,11 +219,21 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                             buffer.push_str(&format!("{}", whitespace));
                         }
                     },
+                    Whitespace::Space => {
+                        if !result.ends_with("\n") && !result.ends_with("\t") {
+                            buffer.push_str(&format!("{}", whitespace));
+                        }
+                        else {
+                            buffer.push_str(&indentation.get_string(None));
+                        }
+                    }
                     _ => {
+                        if !result.ends_with("\n") {
+                            buffer.push('\n');
+                        }
                         buffer.push_str(&format!("{}", whitespace));
                     }
                 }
-                
             }
             other_token => {
                 if result.ends_with("\n") {

@@ -55,21 +55,26 @@ where
 
 impl Default for Settings {
     fn default() -> Settings {
+        let mut hash_after: HashSet<String> = HashSet::new();
+        hash_after.insert("SELECT".to_string());
+        hash_after.insert("FROM".to_string());
+        hash_after.insert("WHERE".to_string());
+
         Settings {
             database: "generic".to_string(),
             keywords_case: "uppercase".to_string(),
-            tabulation_format: "\t".to_string(),
+            tabulation_format: "tab1".to_string(),
             linebreak_after_comma: true,
             linebreak_after_lparenthesis: true,
             linebreak_after_lbrace: true,
             linebreak_after_lbracket: false,
             linebreak_after_semicolon: true,
-            linebreak_after_keywords: HashSet::new(),
+            linebreak_after_keywords: hash_after,
             linebreak_before_keywords: HashSet::new(),
             indentation_parenthesis: true,
             indentation_braces: true,
             indentation_brackets: false,
-            indentation_clauses: false
+            indentation_clauses: true
         }
     }
 }

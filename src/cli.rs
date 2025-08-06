@@ -3,6 +3,7 @@ use std::{collections::HashSet, env, fs::{self, DirEntry}, path::PathBuf};
 use mylog::{logs, error};
 use crate::settings::Settings;
 use crate::formater::formater;
+use crate::doc::print_help;
 
 pub fn main(args:Vec<String>) {
     let mut settings_path = String::new();
@@ -12,11 +13,11 @@ pub fn main(args:Vec<String>) {
     let mut target_folders: HashSet<String> = HashSet::new();
     let mut help = false;
     let mut verbose = false;
-    let mut get_paths = false;
+    let mut status = false;
 
     parse_args(
         args, &mut settings_path, &mut logs_path, &mut target_files,
-        &mut target_folders, &mut help, &mut verbose, &mut get_paths
+        &mut target_folders, &mut help, &mut verbose, &mut status
     );
 
     if let Err(error) = set_up(&mut settings, &mut settings_path, &mut logs_path) {
@@ -27,7 +28,7 @@ pub fn main(args:Vec<String>) {
     if help {
         print_help();
     }
-    else if get_paths {
+    else if status {
         println!("\nParsed paths :\nLogs path : {}\nSettings path : {}\n",logs_path,settings_path);
     }
     else {
@@ -73,7 +74,7 @@ fn parse_args(
     target_folders: &mut HashSet<String>,
     help: &mut bool,
     verbose: &mut bool,
-    get_paths: &mut bool
+    status: &mut bool
 ) {
     for arg in args {
         if ["-help", "--help"].contains(&arg.as_str()) {
@@ -82,8 +83,8 @@ fn parse_args(
         else if ["-verbose", "--verbose"].contains(&arg.as_str()) {
             *verbose = true;
         }
-        else if ["-get_paths", "--get_paths"].contains(&arg.as_str()) {
-            *get_paths = true;
+        else if ["-status", "--status"].contains(&arg.as_str()) {
+            *status = true;
         }
         else if [".", "*"].contains(&arg.as_str()) {
             if let Ok(path) = env::current_dir() {
@@ -186,8 +187,4 @@ fn get_scripts(folder_path: String) -> Vec<PathBuf> {
             scripts_path
         }
     }
-}
-
-fn print_help() {
-    println!("Usage : sqlformater <COMMANDS> <OPTIONS>")
 }

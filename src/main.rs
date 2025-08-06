@@ -1,6 +1,7 @@
 mod settings;
 mod formater;
 mod cli;
+mod doc;
 
 use std::env;
 fn main() {
