@@ -98,7 +98,7 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                 }
 
                 let case = settings.keywords_case.as_str();
-                if word.keyword == Keyword::NoKeyword {
+                if word.keyword == Keyword::NoKeyword || result.ends_with(".") {
                     buffer.push_str(&word.value.clone())
                 }
                 else {
@@ -180,7 +180,7 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                 }
             },
             Token::RParen => {
-                if settings.linebreak_after_lparenthesis {
+                if settings.linebreak_after_lparenthesis && !result.ends_with("\n") {
                     buffer.push('\n');
                 }
 
@@ -191,7 +191,7 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                 buffer.push(')');
             },
             Token::RBrace => {
-                if settings.linebreak_after_lbrace {
+                if settings.linebreak_after_lbrace && !result.ends_with("\n") {
                     buffer.push('\n');
                 }
 
@@ -202,7 +202,7 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                 buffer.push('}');
             },
             Token::RBracket => {
-                if settings.linebreak_after_lbracket {
+                if settings.linebreak_after_lbracket && !result.ends_with("\n") {
                     buffer.push('\n');
                 }
 

@@ -12,8 +12,8 @@ Usage:
     -logs_path=<FOLDER_PATH>, --logs_path=<FOLDER_PATH> :
         Set the path to the logs directory.
 
-    -settings_path=<FILE_PATH>, --settings_path=<FILE_PATH> :
-        Set the path to the configuration file to load.
+    -settings_path=<PATH>, --settings_path=<PATH> :
+        Set the path to the configuration file to load or the folder who's contains it.
 
     -verbose, --verbose :
         Enable verbose mode to display detailed execution information.

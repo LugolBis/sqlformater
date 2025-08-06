@@ -80,7 +80,27 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn init(folder_path: Option<PathBuf>) -> Result<Settings, String> {
+    pub fn main(path: Option<PathBuf>) -> Result<Settings, String> {
+        match path {
+            Some(path) => {
+                if path.is_file() {
+                    match Settings::from_file(&path.display().to_string()) {
+                        Ok(settings) => Ok(settings),
+                        Err(settings) => {
+                            error!("Errors detected in the settings file : {}", path.display());
+                            Ok(settings)
+                        }
+                    }
+                }
+                else {
+                    Settings::init(Some(path))
+                }
+            },
+            None => Settings::init(None)
+        }
+    }
+
+    fn init(folder_path: Option<PathBuf>) -> Result<Settings, String> {
         let mut path: PathBuf;
         match folder_path {
             Some(folder_path) => path = folder_path,
@@ -128,8 +148,10 @@ impl Settings {
     }
     
     pub fn from_file(settings_path: &str) -> Result<Settings, Settings> {
+        let settings_path = PathBuf::from(settings_path);
+
         let mut file = OpenOptions::new()
-            .read(true).open(settings_path)
+            .read(true).open(&settings_path)
             .map_err(|e| {error!("{}", e); Settings::default()})?;
 
         let mut content = String::new();
@@ -143,15 +165,29 @@ impl Settings {
 
         match (settings.indentation_clauses, settings.keywords_case.as_str()) {
             (true, "lowercase" | "lower") => {
-                settings.linebreak_after_keywords.insert("select".to_string());
-                settings.linebreak_after_keywords.insert("from".to_string());
-                settings.linebreak_after_keywords.insert("where".to_string());
+                if settings.linebreak_after_keywords.insert("select".to_string())
+                    || settings.linebreak_after_keywords.insert("from".to_string())
+                    || settings.linebreak_after_keywords.insert("where".to_string())
+                {
+                    if let Some(folder_path) = settings_path.parent() {
+                        if let Err(error) = write_settings(&mut folder_path.to_path_buf(), &settings) {
+                            error!("{}", error);
+                        }
+                    }
+                }
                 Ok(settings)
             },
             (true, "uppercase" | "upper") => {
-                settings.linebreak_after_keywords.insert("SELECT".to_string());
-                settings.linebreak_after_keywords.insert("FROM".to_string());
-                settings.linebreak_after_keywords.insert("WHERE".to_string());
+                if settings.linebreak_after_keywords.insert("SELECT".to_string())
+                    || settings.linebreak_after_keywords.insert("FROM".to_string())
+                    || settings.linebreak_after_keywords.insert("WHERE".to_string())
+                {
+                    if let Some(folder_path) = settings_path.parent() {
+                        if let Err(error) = write_settings(&mut folder_path.to_path_buf(), &settings) {
+                            error!("{}", error);
+                        }
+                    }
+                }
                 Ok(settings)
             },
             (false, "lowercase" | "lower" | "uppercase" | "upper") => {

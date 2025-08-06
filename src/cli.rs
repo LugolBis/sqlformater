@@ -139,9 +139,12 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
     if logs_path.as_str() == "" {
         logs::init(folder_path.display().to_string());
     }
+    else {
+        logs::init(logs_path.clone());
+    }
 
     if settings_path == "" {
-        match Settings::init(None) {
+        match Settings::main(None) {
             Ok(loaded_settings) => {
                 *settings = Some(loaded_settings);
                 Ok(())
@@ -153,7 +156,7 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
         }
     }
     else {
-        match Settings::init(Some(PathBuf::from(settings_path.clone()))) {
+        match Settings::main(Some(PathBuf::from(settings_path.clone()))) {
             Ok(loaded_settings) => {
                 *settings = Some(loaded_settings);
                 Ok(())
