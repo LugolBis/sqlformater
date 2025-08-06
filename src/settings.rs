@@ -98,14 +98,18 @@ impl Settings {
             let setting_path = folder_path.join("settings.json");
 
             if !fs::exists(&setting_path).unwrap_or(true) {
-                let settings = Settings::default();
+                let mut settings = Settings::default();
                 let _ = write_settings(folder_path, &settings);
+                settings.tabulation_format = parse_tabulation_format(settings.tabulation_format);
                 Ok(settings)
             }
             else {
                 match Settings::from_file(&setting_path.display().to_string()) {
-                    Ok(setting) => Ok(setting),
-                    Err(setting) => Ok(setting)
+                    Ok(settings) => Ok(settings),
+                    Err(mut settings) => {
+                        settings.tabulation_format = parse_tabulation_format(settings.tabulation_format);
+                        Ok(settings)
+                    }
                 }
             }
         };

@@ -3,7 +3,9 @@ use std::{collections::HashSet, env, fs::{self, DirEntry}, path::PathBuf};
 use mylog::{logs, error};
 use crate::settings::Settings;
 use crate::formater::formater;
-use crate::doc::print_help;
+
+const HELP_USAGE: &str = include_str!("../doc/help-usage.txt");
+const HELP_SETTINGS: &str = include_str!("../doc/help-settings.txt");
 
 pub fn main(args:Vec<String>) {
     let mut settings_path = String::new();
@@ -11,13 +13,14 @@ pub fn main(args:Vec<String>) {
     let mut logs_path = String::new();
     let mut target_files: HashSet<String> = HashSet::new();
     let mut target_folders: HashSet<String> = HashSet::new();
-    let mut help = false;
+    let mut help_usage = false;
+    let mut help_settings = false;
     let mut verbose = false;
     let mut status = false;
 
     parse_args(
         args, &mut settings_path, &mut logs_path, &mut target_files,
-        &mut target_folders, &mut help, &mut verbose, &mut status
+        &mut target_folders, &mut help_usage, &mut help_settings, &mut verbose, &mut status
     );
 
     if let Err(error) = set_up(&mut settings, &mut settings_path, &mut logs_path) {
@@ -25,8 +28,11 @@ pub fn main(args:Vec<String>) {
         return;
     }
 
-    if help {
-        print_help();
+    if help_usage {
+        println!("{}", HELP_USAGE);
+    }
+    else if help_settings {
+        println!("{}", HELP_SETTINGS);
     }
     else if status {
         println!("\nParsed paths :\nLogs path : {}\nSettings path : {}\n",logs_path,settings_path);
@@ -72,13 +78,17 @@ fn parse_args(
     logs_path: &mut String,
     target_files: &mut HashSet<String>,
     target_folders: &mut HashSet<String>,
-    help: &mut bool,
+    help_usage: &mut bool,
+    help_settings: &mut bool,
     verbose: &mut bool,
     status: &mut bool
 ) {
     for arg in args {
         if ["-help", "--help"].contains(&arg.as_str()) {
-            *help = true;
+            *help_usage = true;
+        }
+        else if ["-help-settings", "--help-settings"].contains(&arg.as_str()) {
+            *help_settings = true;
         }
         else if ["-verbose", "--verbose"].contains(&arg.as_str()) {
             *verbose = true;

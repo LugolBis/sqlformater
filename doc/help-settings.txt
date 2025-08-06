@@ -1,0 +1,87 @@
+Settings Configuration (JSON)
+
+The formatting behavior of sqlformater can be customized using a JSON settings file.
+Below is a description of each available parameter:
+
+  "database": <string>
+      The name of the database you're targeting.
+      Accepted values may include:
+        "ansi", "bigquery", "clickhouse", "databricks", "duckdb", "generic",
+        "hive", "mssql", "mysql", "postgre", "redshift", "sqlite" and "snowflake".
+
+  "keywords_case": <string>
+      Defines the letter case for SQL keywords.
+      Accepted values may include:
+        "uppercase", "upper", "lowercase" and "lower".
+
+  "tabulation_format": <string>
+      Customize the indentation format.
+      - Type of tabulation ("tab" or "space")
+      - Occurences (1, 2, 3, ...)
+      Examples: "space2" ("  "), "tab2" ("\t\t"), etc.
+
+  "linebreak_after_comma": <bool>
+      If true, inserts a line break after each comma ','.
+
+  "linebreak_after_lparenthesis": <bool>
+      If true, inserts a line break after each left parenthesis '('.
+
+  "linebreak_after_lbrace": <bool>
+      If true, inserts a line break after each left brace '{'.
+
+  "linebreak_after_lbracket": <bool>
+      If true, inserts a line break after each left bracket '['.
+
+  "linebreak_after_semicolon": <bool>
+      If true, inserts a line break after each semicolon ';'.
+
+  "linebreak_after_keywords": <array of strings>
+      List of SQL keywords that should be followed by a line break.
+      /!\ Paid attention, this is case sensitive and need to choose the same case as the setting `keywords_case`.
+      Example: ["SELECT", "FROM", "WHERE"]
+
+  "linebreak_before_keywords": <array of strings>
+      List of SQL keywords that should be preceded by a line break.
+      /!\ Paid attention, this is case sensitive and need to choose the same case as the setting `keywords_case`.
+      Example: ["AND", "OR", "JOIN"]
+
+  "indentation_parenthesis": <bool>
+      If true, applies indentation within parentheses.
+
+  "indentation_braces": <bool>
+      If true, applies indentation within braces.
+
+  "indentation_brackets": <bool>
+      If true, applies indentation within brackets.
+
+  "indentation_clauses": <bool>
+      If true, applies indentation between SQL clauses.
+      The defined clauses are "SELECT", "FROM" and "WHERE".
+      This setting automatically insert these keywords in the setting `linebreak_after_keywords`
+
+Notes:
+- The settings file must be valid JSON.
+- For keyword-related fields, values are case-insensitive.
+- Boolean values must be true or false.
+
+Example of the Default settings file:
+{
+  "database": "generic",
+  "keywords_case": "uppercase",
+  "tabulation_format": "tab1",
+  "linebreak_after_comma": true,
+  "linebreak_after_lparenthesis": true,
+  "linebreak_after_lbrace": true,
+  "linebreak_after_lbracket": false,
+  "linebreak_after_semicolon": true,
+  "linebreak_after_keywords": [
+    "SELECT",
+    "FROM",
+    "WHERE"
+  ],
+  "linebreak_before_keywords": [],
+  "indentation_parenthesis": true,
+  "indentation_braces": true,
+  "indentation_brackets": false,
+  "indentation_clauses": true
+}
