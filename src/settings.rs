@@ -195,11 +195,6 @@ impl SavedSettings {
         SavedSettings::update(settings, settings_path)
     }
 
-    fn from_str(path: &str) -> Result<Self, ()> {
-        let path = PathBuf::from(path);
-        SavedSettings::from(path)
-    }
-
     fn update(mut settings: Settings, path: PathBuf) -> Result<Self, ()> {
         match (settings.indentation_clauses, settings.keywords_case.as_str()) {
             (true, "lowercase" | "lower") => {

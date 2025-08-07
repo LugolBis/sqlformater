@@ -1,6 +1,7 @@
 use std::{collections::HashSet, env, fs::{self, DirEntry}, path::PathBuf};
 
 use mylog::{logs, error};
+use rayon::prelude::*;
 use crate::settings::{SavedSettings, Settings};
 use crate::formater::formater;
 
@@ -57,9 +58,18 @@ pub fn main(args:Vec<String>) {
             })
         );
 
-        for path in files_path {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(
+                std::thread::available_parallelism()
+                    .map(|n| n.get())
+                    .unwrap_or(1)
+            )
+            .build_global()
+            .expect("Error : failed to create the ThreadPool.");
+
+        files_path.par_iter().for_each(|path| {
             let path_string = path.display().to_string();
-            match formater(&settings, path) {
+            match formater(&settings, path.to_path_buf()) {
                 Ok(_) => {
                     println!("\nSuccessfully format the file : {}", path_string);
                 }
@@ -68,7 +78,7 @@ pub fn main(args:Vec<String>) {
                     eprintln!("ERROR : {} with the file : {}", error, path_string);
                 }
             }
-        }
+        });
     }
 }
 
