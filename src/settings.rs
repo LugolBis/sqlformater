@@ -8,6 +8,7 @@ use serde::{Serialize, Deserialize};
 use mylog::error;
 
 const FOLDER_PATH: &str = "sqlformater";
+const SETTINGS_PATH: &str = "settings.json";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -44,6 +45,8 @@ pub struct Settings {
     pub indentation_clauses: bool
 }
 
+pub struct SavedSettings(pub Settings, pub String);
+
 fn deserialize_hashset<'de, D, T>(deserializer: D) -> Result<HashSet<T>, D::Error>
 where
     D: serde::Deserializer<'de>,
@@ -79,56 +82,74 @@ impl Default for Settings {
     }
 }
 
-impl Settings {
-    pub fn main(path: Option<PathBuf>) -> Result<Settings, String> {
-        match path {
+impl SavedSettings {
+    pub fn main(path: Option<PathBuf>) -> Self {
+        match &path {
             Some(path) => {
                 if path.is_file() {
-                    match Settings::from_file(&path.display().to_string()) {
-                        Ok(settings) => Ok(settings),
-                        Err(settings) => {
-                            error!("Errors detected in the settings file : {}", path.display());
-                            Ok(settings)
+                    match SavedSettings::from(path.to_path_buf()) {
+                        Ok(savedsettings) => savedsettings,
+                        Err(_) => {
+                            error!("Errors detected while try to load the settings file : {}", path.display());
+                            SavedSettings(Settings::default(), format!("Invalid : {}", path.display()))
                         }
                     }
                 }
                 else {
-                    Settings::init(Some(path))
+                    match SavedSettings::init(Some(path.to_path_buf())) {
+                        Ok(savedsettings) => savedsettings,
+                        Err(_) => {
+                            error!("Errors detected while try to init the settings folder : {}", path.display());
+                            SavedSettings(Settings::default(), format!("Invalid : {}", path.display()))
+                        }
+                    }
                 }
             },
-            None => Settings::init(None)
+            None => {
+                match SavedSettings::init(None) {
+                    Ok(savedsettings) => savedsettings,
+                    Err(_) => {
+                        let current_dir = env::current_dir()
+                            .unwrap_or_default();
+                        error!("Errors detected while try to init the settings folder : {}", current_dir.display());
+                        SavedSettings(Settings::default(), format!("Invalid : {}", current_dir.display()))
+                    }
+                }
+            }
         }
     }
 
-    fn init(folder_path: Option<PathBuf>) -> Result<Settings, String> {
+    fn init(target_path: Option<PathBuf>) -> Result<Self, ()> {
         let mut path: PathBuf;
-        match folder_path {
+        match target_path {
             Some(folder_path) => path = folder_path,
             None => {
                 path = env::current_dir()
-                    .map_err(|e| format!("{}", e))?;
+                    .map_err(|e| error!("{}", e))?;
             
                 path.push(FOLDER_PATH);
             }
         }
 
-        let write_files = |folder_path: &mut PathBuf| -> Result<Settings, String> {
-            let _ = write_gitignore(folder_path)?;
-            folder_path.pop();
-            let setting_path = folder_path.join("settings.json");
+        let write_files = |input_path: &mut PathBuf| -> Result<SavedSettings, ()>
+        {
+            write_gitignore(input_path)
+                .map_err(|e| error!("{}", e))?;
+            input_path.pop();
+            let setting_path = input_path.join("settings.json");
 
-            if !fs::exists(&setting_path).unwrap_or(true) {
+            if !fs::exists(&setting_path).unwrap_or(false) {
                 let mut settings = Settings::default();
-                let _ = write_settings(folder_path, &settings);
+                let settings_path = write_settings(input_path, &settings)
+                    .map_err(|e| error!("{}", e))?;
                 settings.tabulation_format = parse_tabulation_format(settings.tabulation_format);
-                Ok(settings)
+                Ok(SavedSettings(settings, settings_path))
             }
             else {
-                match Settings::from_file(&setting_path.display().to_string()) {
-                    Ok(settings) => Ok(settings),
-                    Err(mut settings) => {
-                        settings.tabulation_format = parse_tabulation_format(settings.tabulation_format);
-                        Ok(settings)
+                match SavedSettings::from(setting_path) {
+                    Ok(savedsettings) => Ok(savedsettings),
+                    Err(_) => {
+                        Err(())
                     }
                 }
             }
@@ -139,7 +160,10 @@ impl Settings {
                 Ok(_) => {
                     write_files(&mut path)
                 },
-                Err(error) => Err(format!("{}", error))
+                Err(error) => {
+                    error!("{}", error);
+                    Err(())
+                }
             }
         }
         else {
@@ -147,55 +171,67 @@ impl Settings {
         }
     }
     
-    pub fn from_file(settings_path: &str) -> Result<Settings, Settings> {
-        let settings_path = PathBuf::from(settings_path);
+    /// This function extract the settings from the path in input, it could be the path of the 'settings.json'
+    /// or a folder who's contains a file 'settings.json'
+    fn from(path: PathBuf) -> Result<Self, ()> {
+        let mut settings_path = path;
+        if settings_path.is_dir() {
+            settings_path.push(SETTINGS_PATH)
+        }
 
         let mut file = OpenOptions::new()
             .read(true).open(&settings_path)
-            .map_err(|e| {error!("{}", e); Settings::default()})?;
+            .map_err(|e| error!("{}", e))?;
 
         let mut content = String::new();
         let _ = file.read_to_string(&mut content)
-            .map_err(|e| {error!("{}", e); Settings::default()})?;
+            .map_err(|e| error!("{}", e))?;
 
         let mut settings: Settings = serde_json::from_str(&content)
-            .map_err(|e| {error!("{}", e); Settings::default()})?;
+            .map_err(|e| error!("{}", e))?;
 
         settings.tabulation_format = parse_tabulation_format(settings.tabulation_format);
 
+        SavedSettings::update(settings, settings_path)
+    }
+
+    fn from_str(path: &str) -> Result<Self, ()> {
+        let path = PathBuf::from(path);
+        SavedSettings::from(path)
+    }
+
+    fn update(mut settings: Settings, path: PathBuf) -> Result<Self, ()> {
         match (settings.indentation_clauses, settings.keywords_case.as_str()) {
             (true, "lowercase" | "lower") => {
                 if settings.linebreak_after_keywords.insert("select".to_string())
                     || settings.linebreak_after_keywords.insert("from".to_string())
                     || settings.linebreak_after_keywords.insert("where".to_string())
                 {
-                    if let Some(folder_path) = settings_path.parent() {
-                        if let Err(error) = write_settings(&mut folder_path.to_path_buf(), &settings) {
-                            error!("{}", error);
-                        }
+                    if let Err(error) = write_settings(&mut path.to_path_buf(), &settings) {
+                        error!("{} - settings path : {}", error, path.display());
+                        return Err(());
                     }
                 }
-                Ok(settings)
+                Ok(SavedSettings(settings, path.display().to_string()))
             },
             (true, "uppercase" | "upper") => {
                 if settings.linebreak_after_keywords.insert("SELECT".to_string())
                     || settings.linebreak_after_keywords.insert("FROM".to_string())
                     || settings.linebreak_after_keywords.insert("WHERE".to_string())
                 {
-                    if let Some(folder_path) = settings_path.parent() {
-                        if let Err(error) = write_settings(&mut folder_path.to_path_buf(), &settings) {
-                            error!("{}", error);
-                        }
+                    if let Err(error) = write_settings(&mut path.to_path_buf(), &settings) {
+                        error!("{} - settings path : {}", error, path.display());
+                        return Err(());
                     }
                 }
-                Ok(settings)
+                Ok(SavedSettings(settings, path.display().to_string()))
             },
             (false, "lowercase" | "lower" | "uppercase" | "upper") => {
-                Ok(settings)
+                Ok(SavedSettings(settings, path.display().to_string()))
             }
             (_, unsupported_case) => {
                 error!("Unsupported case : '{}'", unsupported_case);
-                Err(Settings::default())
+                Err(())
             }
         }
     }
@@ -223,27 +259,33 @@ fn parse_tabulation_format(tabulation_format: String) -> String {
     }
 }
 
-fn write_gitignore(folder_path: &mut PathBuf) -> Result<(), String> {
-    folder_path.push(".gitignore");
+fn write_gitignore(path: &mut PathBuf) -> Result<(), String> {
+    if path.is_dir() {
+        path.push(".gitignore");
+    }
 
     let mut file = OpenOptions::new()
-        .create(true).write(true).open(&folder_path)
+        .create(true).truncate(true).write(true).open(&path)
         .map_err(|e| format!("{}", e))?;
     
     let _ = file.write_all(b"# Directory of the CLI tool sqlformater\n*\n!.gitignore");
     Ok(())
 }
 
-fn write_settings(folder_path: &mut PathBuf, settings: &Settings) -> Result<(), String> {
-    folder_path.push("settings.json");
+fn write_settings(path: &mut PathBuf, settings: &Settings) -> Result<String, String> {
+    if path.is_dir() {
+        path.push(SETTINGS_PATH);
+    }
 
     let mut file = OpenOptions::new()
-        .create(true).write(true).truncate(true).open(&folder_path)
+        .create(true).write(true).truncate(true).open(&path)
         .map_err(|e| format!("{}", e))?;
 
     let json_object = serde_json::to_string(settings)
         .map_err(|e| format!("{}", e))?;
 
-    let _ = file.write_all(json_object.as_bytes());
-    Ok(())
+    file.write_all(json_object.as_bytes())
+        .map_err(|e| format!("{}", e))?;
+
+    Ok(path.display().to_string())
 }

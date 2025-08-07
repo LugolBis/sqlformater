@@ -111,7 +111,7 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
 
                     if !result.ends_with("\n")
                         && (settings.linebreak_before_keywords.contains(&value) 
-                            || settings.linebreak_before_keywords.contains(&"*".to_string()))
+                            || settings.linebreak_before_keywords.contains("*"))
                     {
                         buffer.push('\n');
                     }
@@ -119,7 +119,7 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
                     buffer.push_str(&value);
 
                     if settings.linebreak_after_keywords.contains(&value)
-                        || settings.linebreak_after_keywords.contains(&"*".to_string())
+                        || settings.linebreak_after_keywords.contains("*")
                     {
                         buffer.push('\n');
                     }

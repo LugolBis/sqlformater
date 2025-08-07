@@ -1,7 +1,7 @@
 use std::{collections::HashSet, env, fs::{self, DirEntry}, path::PathBuf};
 
 use mylog::{logs, error};
-use crate::settings::Settings;
+use crate::settings::{SavedSettings, Settings};
 use crate::formater::formater;
 
 const HELP_USAGE: &str = include_str!("../doc/help-usage.txt");
@@ -50,7 +50,7 @@ pub fn main(args:Vec<String>) {
             .filter_map(|s| {
                 let p = PathBuf::from(&s);
                 if p.exists() {
-                    Some(p.to_path_buf())
+                    Some(p)
                 } else {
                     None
                 }
@@ -132,41 +132,28 @@ fn parse_args(
     }
 }
 
-fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path: &mut String) -> Result<(), String> {
-    let mut folder_path = env::current_dir().unwrap_or(PathBuf::new());
+fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path: &mut str) -> Result<(), String> {
+    let mut folder_path = env::current_dir().unwrap_or_default();
     folder_path.push("sqlformater");
 
-    if logs_path.as_str() == "" {
+    if logs_path.is_empty() {
         logs::init(folder_path.display().to_string());
     }
     else {
-        logs::init(logs_path.clone());
+        logs::init(logs_path.to_owned());
     }
 
-    if settings_path == "" {
-        match Settings::main(None) {
-            Ok(loaded_settings) => {
-                *settings = Some(loaded_settings);
-                Ok(())
-            }
-            Err(error) => {
-                error!("{}", error);
-                Err(error)
-            }
-        }
+    if settings_path.is_empty() {
+        let saved_settings = SavedSettings::main(None);
+        *settings_path = saved_settings.1;
+        *settings = Some(saved_settings.0);
     }
     else {
-        match Settings::main(Some(PathBuf::from(settings_path.clone()))) {
-            Ok(loaded_settings) => {
-                *settings = Some(loaded_settings);
-                Ok(())
-            }
-            Err(error) => {
-                error!("{}", error);
-                Err(error)
-            }
-        }
+        let saved_settings = SavedSettings::main(Some(PathBuf::from(settings_path.to_owned())));
+        *settings_path = saved_settings.1;
+        *settings = Some(saved_settings.0);
     }
+    Ok(())
 }
 
 fn get_scripts(folder_path: String) -> Vec<PathBuf> {
@@ -176,8 +163,7 @@ fn get_scripts(folder_path: String) -> Vec<PathBuf> {
     match fs::read_dir(folder_path) {
         Ok(entries) => {
             let entries = entries
-                .filter(|e| e.is_ok())
-                .map(|x| x.unwrap())
+                .flatten()
                 .collect::<Vec<DirEntry>>();
 
             for entry in entries {
