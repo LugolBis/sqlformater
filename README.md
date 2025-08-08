@@ -9,6 +9,11 @@ Install with Cargo :
 cargo install --git https://github.com/LugolBis/sqlformater.git
 ```
 
+Install with pip :
+```bash
+pip install sqlformater
+```
+
 Usage :
 ```bash
 sqlformater <PATHS> [OPTIONS]

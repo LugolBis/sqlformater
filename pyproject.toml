@@ -1,0 +1,18 @@
+[project]
+name = "sqlformater"
+version = "0.1.0"
+description = "Formater SQL written in Rust"
+authors = [{name = "LugolBis"}]
+license = "MIT"
+readme = "README.md"
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+module-name = "sqlformater"
+bindings = "pyo3"
+
+[project.scripts]
+sqlformater = "sqlformater:run_cli"
