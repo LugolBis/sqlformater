@@ -2,7 +2,7 @@ use std::{collections::HashSet, env, fs::{self, DirEntry}, path::PathBuf};
 
 use mylog::{logs, error};
 use rayon::prelude::*;
-use crate::settings::{SavedSettings, Settings};
+use crate::settings::{SavedSettings, Settings, write_gitignore};
 use crate::formater::formater;
 
 const HELP_USAGE: &str = include_str!("../doc/help-usage.txt");
@@ -115,8 +115,7 @@ fn parse_args(
             if let Some(path) = arg.split("=").collect::<Vec<&str>>().get(1) {
                 let path = PathBuf::from(path);
                 if let Some(folder_path) = path.parent() {
-                    logs::init(folder_path.display().to_string());
-                    logs_path.push_str(&path.display().to_string());
+                    logs_path.push_str(&folder_path.display().to_string());
                 }
             }
         }
@@ -147,10 +146,21 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
     folder_path.push("sqlformater");
 
     if logs_path.is_empty() {
-        logs::init(folder_path.display().to_string());
+        logs::init(
+            folder_path.display().to_string(),
+            "1MB".to_string(),
+            "7days".to_string()
+        )?;
+        write_gitignore(&mut folder_path)?;
     }
     else {
-        logs::init(logs_path.to_owned());
+        logs::init(
+            logs_path.to_owned(),
+            "1MB".to_string(),
+            "7days".to_string()
+        )?;
+        let mut path = PathBuf::from(logs_path.to_string());
+        write_gitignore(&mut path)?;
     }
 
     if settings_path.is_empty() {
@@ -163,6 +173,10 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
         *settings_path = saved_settings.1;
         *settings = Some(saved_settings.0);
     }
+
+    let mut path = PathBuf::from(settings_path.clone());
+    write_gitignore(&mut path)?;
+
     Ok(())
 }
 

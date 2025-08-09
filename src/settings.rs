@@ -133,9 +133,6 @@ impl SavedSettings {
 
         let write_files = |input_path: &mut PathBuf| -> Result<SavedSettings, ()>
         {
-            write_gitignore(input_path)
-                .map_err(|e| error!("{}", e))?;
-            input_path.pop();
             let setting_path = input_path.join("settings.json");
 
             if !fs::exists(&setting_path).unwrap_or(false) {
@@ -254,7 +251,7 @@ fn parse_tabulation_format(tabulation_format: String) -> String {
     }
 }
 
-fn write_gitignore(path: &mut PathBuf) -> Result<(), String> {
+pub fn write_gitignore(path: &mut PathBuf) -> Result<(), String> {
     if path.is_dir() {
         path.push(".gitignore");
     }
@@ -263,7 +260,7 @@ fn write_gitignore(path: &mut PathBuf) -> Result<(), String> {
         .create(true).truncate(true).write(true).open(&path)
         .map_err(|e| format!("{}", e))?;
     
-    let _ = file.write_all(b"# Directory of the CLI tool sqlformater\n*\n!.gitignore");
+    let _ = file.write_all(b"*\n!.gitignore");
     Ok(())
 }
 
