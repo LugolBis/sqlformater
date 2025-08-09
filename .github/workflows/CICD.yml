@@ -20,11 +20,11 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: PyO3/maturin-action@v1
-        with:
-          command: build
-          args: --release --out dist
-          python-version: ${{ matrix.python-version }}
+      - name: Install Maturin
+        run: pip install maturin
+
+      - name: Build wheels
+        run: maturin build --release --out dist
 
       - uses: actions/upload-artifact@v4
         with:
