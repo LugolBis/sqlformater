@@ -40,7 +40,7 @@ jobs:
           path: dist
 
       - name: Merge all wheel files
-        run: mkdir final_dist && cp dist/**/**/*.whl final_dist/
+        run: mkdir final_dist && find dist -type f \( -name "*.whl" -o -name "*.tar.gz" \) -exec cp {} final_dist/ \;
 
       - name: Install Twine
         run: pip install twine
