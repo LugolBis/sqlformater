@@ -122,7 +122,15 @@ impl SavedSettings {
     fn init(target_path: Option<PathBuf>) -> Result<Self, ()> {
         let mut path: PathBuf;
         match target_path {
-            Some(folder_path) => path = folder_path,
+            Some(folder_path) => {
+                if !fs::exists(&folder_path).unwrap_or(false) {
+                    fs::create_dir_all(&folder_path)
+                        .map_err(|e| error!(
+                            "Failed to create the directory : {}\n\t{}", folder_path.display(), e
+                        ))?;
+                }
+                path = folder_path;
+            },
             None => {
                 path = env::current_dir()
                     .map_err(|e| error!("{}", e))?;
@@ -258,7 +266,7 @@ pub fn write_gitignore(path: &mut PathBuf) -> Result<(), String> {
 
     let mut file = OpenOptions::new()
         .create(true).truncate(true).write(true).open(&path)
-        .map_err(|e| format!("{}", e))?;
+        .map_err(|e| format!("{} when try to create/open the file {}", e, path.display()))?;
     
     let _ = file.write_all(b"*\n!.gitignore");
     Ok(())

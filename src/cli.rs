@@ -58,6 +58,10 @@ pub fn main(args:Vec<String>) {
             })
         );
 
+        if files_path.len() < 1 {
+            return;
+        }
+
         rayon::ThreadPoolBuilder::new()
             .num_threads(
                 std::thread::available_parallelism()
@@ -113,10 +117,7 @@ fn parse_args(
         }
         else if arg.starts_with("-logs_path=") || arg.starts_with("--logs_path=") {
             if let Some(path) = arg.split("=").collect::<Vec<&str>>().get(1) {
-                let path = PathBuf::from(path);
-                if let Some(folder_path) = path.parent() {
-                    logs_path.push_str(&folder_path.display().to_string());
-                }
+                logs_path.push_str(path);
             }
         }
         else if arg.starts_with("-settings_path=") || arg.starts_with("--settings_path=") {
@@ -155,7 +156,7 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
     }
     else {
         logs::init(
-            logs_path.to_owned(),
+            logs_path.to_string(),
             "1MB".to_string(),
             "7days".to_string()
         )?;
@@ -174,8 +175,10 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
         *settings = Some(saved_settings.0);
     }
 
-    let mut path = PathBuf::from(settings_path.clone());
-    write_gitignore(&mut path)?;
+    let path = PathBuf::from(settings_path.clone());
+    if let Some(folder_parent) = path.parent() {
+        write_gitignore(&mut folder_parent.to_path_buf())?;
+    }
 
     Ok(())
 }
