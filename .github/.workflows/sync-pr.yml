@@ -1,0 +1,86 @@
+name: Create Sync PR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/cli.rs"
+      - "src/formater.rs"
+      - "src/settings.rs"
+      - "doc/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "README.md"
+
+jobs:
+  create-sync-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check if sync needed
+        id: check-changes
+        run: |
+          echo "Checking for changes in specified paths..."
+
+      - name: Setup Git
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Create sync branch
+        run: |
+          # Create a branch based on the timestamp
+          branch_name="sync-$(date +%s)"
+          git checkout -b $branch_name
+          echo "SYNC_BRANCH=$branch_name" >> $GITHUB_ENV
+
+      - name: Checkout python branch files
+        run: |
+          # Get the files from the python branch
+          git fetch origin python_package:python_package  # Remplacez par votre branche
+          git checkout python_package -- .
+
+      - name: Apply changes from main
+        run: |
+          # Apply changes on the specified files/folders
+          git checkout main -- doc/ src/cli.rs src/formater.rs src/settings.rs Cargo.toml Cargo.lock README.md
+
+      - name: Handle Cargo.toml conflicts
+        run: |
+          python .github/scripts/handle_cargo_conflicts.py
+
+      - name: Commit changes
+        run: |
+          git add .
+          if ! git diff --staged --quiet; then
+            git commit -m "Sync changes from main branch"
+          else
+            echo "No changes to commit"
+            exit 0
+          fi
+
+      - name: Push branch
+        run: git push origin $SYNC_BRANCH
+
+      - name: Create Pull Request
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head: process.env.SYNC_BRANCH,
+              base: 'python_package',
+              title: 'Sync changes from main branch',
+              body: 'This PR syncs changes from the main branch. Please review the changes, especially to Cargo.toml, to ensure Python-specific configurations are preserved.',
+              maintainer_can_modify: true
+            });
+            console.log(`PR created: ${pr.html_url}`);
