@@ -155,6 +155,7 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
             "1MB".to_string(),
             "7days".to_string()
         )?;
+      
         let path = PathBuf::from(logs_path.to_string());
         write_gitignore(&path)?;
     }
