@@ -15,9 +15,6 @@ Usage:
     -settings_path=<PATH>, --settings_path=<PATH> :
         Set the path to the configuration file to load or the folder who's contains it.
 
-    -verbose, --verbose :
-        Enable verbose mode to display detailed execution information.
-
     -help, --help :
         Display this help message.
 

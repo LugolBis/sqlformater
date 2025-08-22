@@ -259,26 +259,34 @@ fn parse_tabulation_format(tabulation_format: String) -> String {
     }
 }
 
-pub fn write_gitignore(path: &mut PathBuf) -> Result<(), String> {
+pub fn write_gitignore(path: &PathBuf) -> Result<(), String> {
+    let target_path: PathBuf;
     if path.is_dir() {
-        path.push(".gitignore");
+        target_path = path.join(".gitignore");
+    }
+    else {
+        target_path = path.clone();
     }
 
     let mut file = OpenOptions::new()
-        .create(true).truncate(true).write(true).open(&path)
-        .map_err(|e| format!("{} when try to create/open the file {}", e, path.display()))?;
+        .create(true).truncate(true).write(true).open(&target_path)
+        .map_err(|e| format!("{} when try to create/open the file {:?}", e, path))?;
     
-    let _ = file.write_all(b"*\n!.gitignore");
+    let _ = file.write_all(b"*");
     Ok(())
 }
 
-fn write_settings(path: &mut PathBuf, settings: &Settings) -> Result<String, String> {
+fn write_settings(path: &PathBuf, settings: &Settings) -> Result<String, String> {
+    let target_path: PathBuf;
     if path.is_dir() {
-        path.push(SETTINGS_PATH);
+        target_path = path.join(SETTINGS_PATH);
+    }
+    else {
+        target_path = path.clone();
     }
 
     let mut file = OpenOptions::new()
-        .create(true).write(true).truncate(true).open(&path)
+        .create(true).write(true).truncate(true).open(&target_path)
         .map_err(|e| format!("{}", e))?;
 
     let json_object = serde_json::to_string(settings)
