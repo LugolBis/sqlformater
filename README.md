@@ -4,12 +4,12 @@
 
 ## 🚀 Getting Started
 
-Install with Cargo :
+Install with **```Cargo```** :
 ```bash
 cargo install --git https://github.com/LugolBis/sqlformater.git
 ```
 
-Install with pip :
+Install with **```Pip```** :
 ```bash
 pip install sqlformater
 ```
@@ -33,7 +33,6 @@ You can provide **one or more** of the following:
 |:-|:-|
 |`-logs_path=<FOLDER_PATH>`,<br>`--logs_path=<FOLDER_PATH>`|Specifies the folder where **logs** will be saved.|
 |`-settings_path=<PATH>`,<br>`--settings_path=<PATH>`|Path to the **configuration file** or the folder that contains it.|
-| `-verbose`,<br>`--verbose`| Enables **verbose mode** to display detailed execution information. |
 | `-status`,<br>`--status`| Shows **diagnostic information**: settings, logs, etc. |
 | `-help`,<br>`--help` | Displays **general help**. |
 | `-help-settings`,<br>`--help-settings`| Displays **information about available configuration settings**. |

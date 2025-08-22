@@ -9,7 +9,6 @@ on:
       - "src/settings.rs"
       - "doc/**"
       - "Cargo.toml"
-      - "Cargo.lock"
       - "README.md"
 
 jobs:
@@ -51,11 +50,7 @@ jobs:
       - name: Apply changes from main
         run: |
           # Apply changes on the specified files/folders
-          git checkout main -- doc/ src/cli.rs src/formater.rs src/settings.rs Cargo.toml Cargo.lock README.md
-
-      - name: Handle Cargo.toml conflicts
-        run: |
-          python .github/scripts/handle_cargo_conflicts.py
+          git checkout main -- doc/ src/cli.rs src/formater.rs src/settings.rs Cargo.toml README.md
 
       - name: Commit changes
         run: |
