@@ -16,12 +16,11 @@ pub fn main(args:Vec<String>) {
     let mut target_folders: HashSet<String> = HashSet::new();
     let mut help_usage = false;
     let mut help_settings = false;
-    let mut verbose = false;
     let mut status = false;
 
     parse_args(
         args, &mut settings_path, &mut logs_path, &mut target_files,
-        &mut target_folders, &mut help_usage, &mut help_settings, &mut verbose, &mut status
+        &mut target_folders, &mut help_usage, &mut help_settings, &mut status
     );
 
     if let Err(error) = set_up(&mut settings, &mut settings_path, &mut logs_path) {
@@ -39,7 +38,7 @@ pub fn main(args:Vec<String>) {
         println!("\nParsed paths :\nLogs path : {}\nSettings path : {}\n",logs_path,settings_path);
     }
     else {
-        let settings = settings.unwrap();
+        let settings = settings.unwrap_or_default();
         
         let mut files_path: Vec<PathBuf> = Vec::new();
         for folder_path in target_folders {
@@ -69,7 +68,7 @@ pub fn main(args:Vec<String>) {
                     .unwrap_or(1)
             )
             .build_global()
-            .expect("Error : failed to create the ThreadPool.");
+            .unwrap_or_else(|e| error!("{}", e));
 
         files_path.par_iter().for_each(|path| {
             let path_string = path.display().to_string();
@@ -94,7 +93,6 @@ fn parse_args(
     target_folders: &mut HashSet<String>,
     help_usage: &mut bool,
     help_settings: &mut bool,
-    verbose: &mut bool,
     status: &mut bool
 ) {
     for arg in args {
@@ -103,9 +101,6 @@ fn parse_args(
         }
         else if ["-help-settings", "--help-settings"].contains(&arg.as_str()) {
             *help_settings = true;
-        }
-        else if ["-verbose", "--verbose"].contains(&arg.as_str()) {
-            *verbose = true;
         }
         else if ["-status", "--status"].contains(&arg.as_str()) {
             *status = true;
@@ -152,7 +147,7 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
             "1MB".to_string(),
             "7days".to_string()
         )?;
-        write_gitignore(&mut folder_path)?;
+        write_gitignore(&folder_path)?;
     }
     else {
         logs::init(
@@ -160,8 +155,9 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
             "1MB".to_string(),
             "7days".to_string()
         )?;
-        let mut path = PathBuf::from(logs_path.to_string());
-        write_gitignore(&mut path)?;
+      
+        let path = PathBuf::from(logs_path.to_string());
+        write_gitignore(&path)?;
     }
 
     if settings_path.is_empty() {
@@ -177,7 +173,7 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
 
     let path = PathBuf::from(settings_path.clone());
     if let Some(folder_parent) = path.parent() {
-        write_gitignore(&mut folder_parent.to_path_buf())?;
+        write_gitignore(&folder_parent.to_path_buf())?;
     }
 
     Ok(())
