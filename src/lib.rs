@@ -5,13 +5,6 @@ pub mod cli;
 use pyo3::prelude::*;
 use std::env;
 
-/* 
-#[pyfunction]
-fn run_cli(py: Python) {
-    let args: Vec<String> = env::args().collect();
-    py.allow_threads(|| cli::main(args));
-}*/
-
 #[pyfunction]
 fn run_cli(py: Python, args: Option<Vec<String>>) -> PyResult<()> {
     let args_vec: Vec<String> = match args {

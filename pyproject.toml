@@ -1,10 +1,13 @@
 [project]
 name = "sqlformater"
-version = "1.0.1"
+version = "1.0.11"
 description = "Formater SQL written in Rust"
 authors = [{name = "LugolBis"}]
 license = { text = "GPL-3.0-or-later" }
 readme = "README.md"
+
+[project.urls]
+Repository = "https://github.com/LugolBis/sqlformater"
 
 [build-system]
 requires = ["maturin>=1.0,<2.0"]
