@@ -1,0 +1,57 @@
+name: Build and Publish wheels
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install Maturin
+        run: pip install maturin==1.4.0
+
+      - name: Build wheels
+        run: maturin build --release --out dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/*
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Merge all wheel files
+        run: mkdir final_dist && find dist -type f \( -name "*.whl" -o -name "*.tar.gz" \) -exec cp {} final_dist/ \;
+
+      - name: Install Twine
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install twine==5.0.0
+
+      - name: Validate metadata
+        run: twine check final_dist/*
+
+      - name: Upload to PyPI
+        env:
+          TWINE_USERNAME: LugolBis
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload final_dist/*
