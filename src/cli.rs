@@ -147,7 +147,7 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
             "1MB".to_string(),
             "7days".to_string()
         )?;
-        write_gitignore(&mut folder_path)?;
+        write_gitignore(&folder_path)?;
     }
     else {
         logs::init(
@@ -155,8 +155,8 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
             "1MB".to_string(),
             "7days".to_string()
         )?;
-        let mut path = PathBuf::from(logs_path.to_string());
-        write_gitignore(&mut path)?;
+        let path = PathBuf::from(logs_path.to_string());
+        write_gitignore(&path)?;
     }
 
     if settings_path.is_empty() {
@@ -172,7 +172,7 @@ fn set_up(settings: &mut Option<Settings>, settings_path: &mut String, logs_path
 
     let path = PathBuf::from(settings_path.clone());
     if let Some(folder_parent) = path.parent() {
-        write_gitignore(&mut folder_parent.to_path_buf())?;
+        write_gitignore(&folder_parent.to_path_buf())?;
     }
 
     Ok(())

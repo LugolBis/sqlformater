@@ -90,8 +90,8 @@ impl SavedSettings {
                     match SavedSettings::from(path.to_path_buf()) {
                         Ok(savedsettings) => savedsettings,
                         Err(_) => {
-                            error!("Errors detected while try to load the settings file : {}", path.display());
-                            SavedSettings(Settings::default(), format!("Invalid : {}", path.display()))
+                            error!("Errors detected while try to load the settings file : {:?}", path);
+                            SavedSettings(Settings::default(), format!("Invalid : {:?}", path))
                         }
                     }
                 }
@@ -99,8 +99,8 @@ impl SavedSettings {
                     match SavedSettings::init(Some(path.to_path_buf())) {
                         Ok(savedsettings) => savedsettings,
                         Err(_) => {
-                            error!("Errors detected while try to init the settings folder : {}", path.display());
-                            SavedSettings(Settings::default(), format!("Invalid : {}", path.display()))
+                            error!("Errors detected while try to init the settings folder : {:?}", path);
+                            SavedSettings(Settings::default(), format!("Invalid : {:?}", path))
                         }
                     }
                 }
@@ -111,8 +111,8 @@ impl SavedSettings {
                     Err(_) => {
                         let current_dir = env::current_dir()
                             .unwrap_or_default();
-                        error!("Errors detected while try to init the settings folder : {}", current_dir.display());
-                        SavedSettings(Settings::default(), format!("Invalid : {}", current_dir.display()))
+                        error!("Errors detected while try to init the settings folder : {:?}", current_dir);
+                        SavedSettings(Settings::default(), format!("Invalid : {:?}", current_dir))
                     }
                 }
             }
@@ -120,26 +120,25 @@ impl SavedSettings {
     }
 
     fn init(target_path: Option<PathBuf>) -> Result<Self, ()> {
-        let mut path: PathBuf;
+        let path: PathBuf;
         match target_path {
             Some(folder_path) => {
                 if !fs::exists(&folder_path).unwrap_or(false) {
                     fs::create_dir_all(&folder_path)
                         .map_err(|e| error!(
-                            "Failed to create the directory : {}\n\t{}", folder_path.display(), e
+                            "Failed to create the directory : {:?}\n\t{}", folder_path, e
                         ))?;
                 }
                 path = folder_path;
             },
             None => {
                 path = env::current_dir()
-                    .map_err(|e| error!("{}", e))?;
-            
-                path.push(FOLDER_PATH);
+                    .map_err(|e| error!("{}", e))?
+                    .join(FOLDER_PATH);
             }
         }
 
-        let write_files = |input_path: &mut PathBuf| -> Result<SavedSettings, ()>
+        let write_files = |input_path: &PathBuf| -> Result<SavedSettings, ()>
         {
             let setting_path = input_path.join("settings.json");
 
@@ -163,7 +162,7 @@ impl SavedSettings {
         if !fs::exists(&path).unwrap_or(false) {
             match fs::create_dir(&path) {
                 Ok(_) => {
-                    write_files(&mut path)
+                    write_files(&path)
                 },
                 Err(error) => {
                     error!("{}", error);
@@ -172,7 +171,7 @@ impl SavedSettings {
             }
         }
         else {
-            write_files(&mut path)
+            write_files(&path)
         }
     }
     
@@ -262,6 +261,9 @@ fn parse_tabulation_format(tabulation_format: String) -> String {
 pub fn write_gitignore(path: &PathBuf) -> Result<(), String> {
     let target_path: PathBuf;
     if path.is_dir() {
+        if !fs::exists(path).unwrap_or(false) {
+            fs::create_dir_all(path).map_err(|e| format!("{}", e))?;
+        }
         target_path = path.join(".gitignore");
     }
     else {
@@ -295,5 +297,5 @@ fn write_settings(path: &PathBuf, settings: &Settings) -> Result<String, String>
     file.write_all(json_object.as_bytes())
         .map_err(|e| format!("{}", e))?;
 
-    Ok(path.display().to_string())
+    Ok(target_path.display().to_string())
 }
