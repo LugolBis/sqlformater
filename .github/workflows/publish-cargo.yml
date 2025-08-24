@@ -1,0 +1,59 @@
+name: Publish sqlformater crate
+
+on:
+  push:
+    branches: [cargo-package]
+    paths:
+      - 'src/**'
+      - 'doc/**'
+      - 'README.md'
+      - '.github/workflows/publish-crate.yml'
+
+jobs:
+  test-mylog:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify README path
+        shell: bash
+        run: |
+          cd mylog
+          if [ ! -f "README.md" ]; then
+            echo "ERROR: README.md not found at root"
+            exit 1
+          fi
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Test usage
+        run: cargo test --verbose
+
+  publish-sqlformater:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
+        run: |
+          # Publish from the folder mylog
+          cargo publish

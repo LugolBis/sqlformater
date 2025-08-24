@@ -2,6 +2,13 @@
 name = "sqlformater"
 version = "1.0.11"
 edition = "2024"
+description = "A CLI designed to **automatically format SQL scripts**."
+repository = "https://github.com/LugolBis/sqlformater"
+keywords = ["cli", "sql"]
+categories = ["command-line-interface", "command-line-utilities"]
+license = "GPL-3.0-or-later"
+authors = ["LugolBis"]
+readme = "README.md"
 
 [dependencies]
 mylog = "0.1.4"
