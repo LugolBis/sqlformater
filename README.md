@@ -6,7 +6,7 @@
 
 Install with **```Cargo```** :
 ```bash
-cargo install --git https://github.com/LugolBis/sqlformater.git
+cargo install sqlformater
 ```
 
 Install with **```Pip```** :
