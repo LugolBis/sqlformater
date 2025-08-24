@@ -5,11 +5,12 @@ use sqlformater::cli;
 const RESULTS_FOLDER: &str = "tests_results";
 
 fn test_cli(args: Vec<&str>, iteration: usize) {
-    if (!fs::exists(RESULTS_FOLDER).unwrap_or(false)) && iteration==0 {
+    if (!fs::exists(RESULTS_FOLDER).unwrap_or(false)) && iteration == 0 {
         let _ = fs::create_dir(RESULTS_FOLDER);
     }
 
-    let args = args.into_iter()
+    let args = args
+        .into_iter()
         .map(|v| v.to_string())
         .collect::<Vec<String>>();
 
