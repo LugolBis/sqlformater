@@ -11,9 +11,14 @@ use serde::{Deserialize, Serialize};
 const FOLDER_PATH: &str = "sqlformater";
 const SETTINGS_PATH: &str = "settings.json";
 
-const DEFAULT_LBA_WORDS: [&str;4] = [",", "(", "{", ";"];
-const DEFAULT_LBA_KEYWORDS: [&str;6] = ["SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT"];
-
+const DEFAULT_LBA_WORDS: [&str; 4] = [",", "(", "{", ";"];
+const DEFAULT_LBA_KEYWORDS: [&str; 6] = ["SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT"];
+const DEFAULT_IDENT_START: [&str; 9] = [
+    "(", "[", "{", "SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT",
+];
+const DEFAULT_IDENT_END: [&str; 9] = [
+    ")", "]", "}", "SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT",
+];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -24,7 +29,7 @@ pub struct Settings {
     pub keywords_case: String,
     /// Customize the tabulations
     pub tabulation_format: String,
-    /// Insert linebreak after specified Words.
+    /// Insert linebreak after specified words
     /// It could be anything (ponctuation, etc.)
     #[serde(deserialize_with = "deserialize_hashset")]
     pub linebreak_after_words: HashSet<String>,
@@ -34,14 +39,12 @@ pub struct Settings {
     /// Insert linebreak after specifieds SQL Keywords
     #[serde(deserialize_with = "deserialize_hashset")]
     pub linebreak_before_keywords: HashSet<String>,
-    /// Insert indentations between the parenthesis
-    pub indentation_parenthesis: bool,
-    /// Insert indentations between the braces
-    pub indentation_braces: bool,
-    /// Insert indentations between the brackets
-    pub indentation_brackets: bool,
-    /// Insert indentations between clauses
-    pub indentation_clauses: bool,
+    /// Increase indentation after the words
+    #[serde(deserialize_with = "deserialize_hashset")]
+    pub indentation_start: HashSet<String>,
+    /// Decrease indentation after the words
+    #[serde(deserialize_with = "deserialize_hashset")]
+    pub indentation_end: HashSet<String>,
 }
 
 pub struct SavedSettings(pub Settings, pub String);
@@ -57,9 +60,14 @@ where
 
 impl Default for Settings {
     fn default() -> Settings {
-        let linebreak_after_words: HashSet<String> = HashSet::from_par_iter(DEFAULT_LBA_WORDS.par_iter().map(|val| val.to_string()));
-
-        let linebreak_after_keywords: HashSet<String> = HashSet::from_par_iter(DEFAULT_LBA_KEYWORDS.par_iter().map(|val| val.to_string()));
+        let linebreak_after_words: HashSet<String> =
+            HashSet::from_par_iter(DEFAULT_LBA_WORDS.par_iter().map(|val| val.to_string()));
+        let linebreak_after_keywords: HashSet<String> =
+            HashSet::from_par_iter(DEFAULT_LBA_KEYWORDS.par_iter().map(|val| val.to_string()));
+        let indentation_start: HashSet<String> =
+            HashSet::from_par_iter(DEFAULT_IDENT_START.par_iter().map(|val| val.to_string()));
+        let indentation_end: HashSet<String> =
+            HashSet::from_par_iter(DEFAULT_IDENT_END.par_iter().map(|val| val.to_string()));
 
         Settings {
             database: "generic".to_string(),
@@ -68,10 +76,8 @@ impl Default for Settings {
             linebreak_after_words,
             linebreak_after_keywords,
             linebreak_before_keywords: HashSet::new(),
-            indentation_parenthesis: true,
-            indentation_braces: true,
-            indentation_brackets: false,
-            indentation_clauses: true,
+            indentation_start,
+            indentation_end,
         }
     }
 }
@@ -195,49 +201,42 @@ impl SavedSettings {
     }
 
     fn update(mut settings: Settings, path: PathBuf) -> Result<Self, ()> {
-        match (
-            settings.indentation_clauses,
-            settings.keywords_case.as_str(),
-        ) {
-            (true, "lowercase" | "lower") => {
-                if settings
-                    .linebreak_after_keywords
-                    .insert("select".to_string())
-                    || settings.linebreak_after_keywords.insert("from".to_string())
-                    || settings
-                        .linebreak_after_keywords
-                        .insert("where".to_string())
-                {
-                    if let Err(error) = write_settings(&mut path.to_path_buf(), &settings) {
-                        error!("{} - settings path : {}", error, path.display());
-                        return Err(());
-                    }
-                }
-                Ok(SavedSettings(settings, path.display().to_string()))
+        match settings.keywords_case.as_str() {
+            "lowercase" | "lower" => {
+                settings.indentation_start = settings
+                    .indentation_start
+                    .par_iter()
+                    .map(|val| val.to_lowercase())
+                    .collect();
+                settings.indentation_end = settings
+                    .indentation_end
+                    .par_iter()
+                    .map(|val| val.to_lowercase())
+                    .collect();
             }
-            (true, "uppercase" | "upper") => {
-                if settings
-                    .linebreak_after_keywords
-                    .insert("SELECT".to_string())
-                    || settings.linebreak_after_keywords.insert("FROM".to_string())
-                    || settings
-                        .linebreak_after_keywords
-                        .insert("WHERE".to_string())
-                {
-                    if let Err(error) = write_settings(&mut path.to_path_buf(), &settings) {
-                        error!("{} - settings path : {}", error, path.display());
-                        return Err(());
-                    }
-                }
-                Ok(SavedSettings(settings, path.display().to_string()))
+            "uppercase" | "upper" => {
+                settings.indentation_start = settings
+                    .indentation_start
+                    .par_iter()
+                    .map(|val| val.to_uppercase())
+                    .collect();
+                settings.indentation_end = settings
+                    .indentation_end
+                    .par_iter()
+                    .map(|val| val.to_uppercase())
+                    .collect();
             }
-            (false, "lowercase" | "lower" | "uppercase" | "upper") => {
-                Ok(SavedSettings(settings, path.display().to_string()))
-            }
-            (_, unsupported_case) => {
+            unsupported_case => {
                 error!("Unsupported case : '{}'", unsupported_case);
-                Err(())
+                return Err(());
             }
+        }
+
+        if let Err(error) = write_settings(&mut path.to_path_buf(), &settings) {
+            error!("{} - settings path : {}", error, path.display());
+            Err(())
+        } else {
+            Ok(SavedSettings(settings, path.display().to_string()))
         }
     }
 }
