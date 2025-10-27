@@ -5,10 +5,15 @@ use std::{env, fs};
 use std::{fs::OpenOptions, path::PathBuf};
 
 use mylog::error;
+use rayon::iter::{FromParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 
 const FOLDER_PATH: &str = "sqlformater";
 const SETTINGS_PATH: &str = "settings.json";
+
+const DEFAULT_LBA_WORDS: [&str;4] = [",", "(", "{", ";"];
+const DEFAULT_LBA_KEYWORDS: [&str;6] = ["SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT"];
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -19,16 +24,10 @@ pub struct Settings {
     pub keywords_case: String,
     /// Customize the tabulations
     pub tabulation_format: String,
-    /// Insert linebreak after each comma ','
-    pub linebreak_after_comma: bool,
-    /// Insert linebreak after each left parenthesis '('
-    pub linebreak_after_lparenthesis: bool,
-    /// Insert linebreak after each left brace '{'
-    pub linebreak_after_lbrace: bool,
-    /// Insert linebreak after each left bracket '['
-    pub linebreak_after_lbracket: bool,
-    /// Insert linebreak after each semicolon
-    pub linebreak_after_semicolon: bool,
+    /// Insert linebreak after specified Words.
+    /// It could be anything (ponctuation, etc.)
+    #[serde(deserialize_with = "deserialize_hashset")]
+    pub linebreak_after_words: HashSet<String>,
     /// Insert linebreak after specifieds SQL Keywords
     #[serde(deserialize_with = "deserialize_hashset")]
     pub linebreak_after_keywords: HashSet<String>,
@@ -58,21 +57,16 @@ where
 
 impl Default for Settings {
     fn default() -> Settings {
-        let mut hash_after: HashSet<String> = HashSet::new();
-        hash_after.insert("SELECT".to_string());
-        hash_after.insert("FROM".to_string());
-        hash_after.insert("WHERE".to_string());
+        let linebreak_after_words: HashSet<String> = HashSet::from_par_iter(DEFAULT_LBA_WORDS.par_iter().map(|val| val.to_string()));
+
+        let linebreak_after_keywords: HashSet<String> = HashSet::from_par_iter(DEFAULT_LBA_KEYWORDS.par_iter().map(|val| val.to_string()));
 
         Settings {
             database: "generic".to_string(),
             keywords_case: "uppercase".to_string(),
             tabulation_format: "tab1".to_string(),
-            linebreak_after_comma: true,
-            linebreak_after_lparenthesis: true,
-            linebreak_after_lbrace: true,
-            linebreak_after_lbracket: false,
-            linebreak_after_semicolon: true,
-            linebreak_after_keywords: hash_after,
+            linebreak_after_words,
+            linebreak_after_keywords,
             linebreak_before_keywords: HashSet::new(),
             indentation_parenthesis: true,
             indentation_braces: true,
