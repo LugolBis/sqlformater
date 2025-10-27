@@ -5,35 +5,60 @@ use std::path::PathBuf;
 use crate::settings::Settings;
 use sqlparser::dialect::{GenericDialect, dialect_from_str};
 use sqlparser::keywords::Keyword;
-use sqlparser::tokenizer::{Token, Tokenizer, Whitespace};
+use sqlparser::tokenizer::{Token, Tokenizer};
 
-#[derive(Debug, Clone)]
-struct IndentationCount(usize, String);
+struct Indentation(usize, usize, String);
 
-impl IndentationCount {
-    pub fn new(value: &str) -> IndentationCount {
-        IndentationCount(0, String::from(value))
+impl Indentation {
+    fn new(value: &str) -> Self {
+        Indentation(0, 0, String::from(value))
     }
 
-    pub fn add(&mut self) {
-        self.0 += 1;
-    }
+    fn update(&mut self, settings: &Settings, word: &str, linebreak: bool) -> String {
+        let (start, end, reset) = (
+            &settings.indentation_start,
+            &settings.indentation_end,
+            &settings.indentation_reset,
+        );
 
-    pub fn sub(&mut self) {
-        self.0 = self.0.saturating_sub(1);
-    }
-
-    #[allow(unused)]
-    pub fn get(&self) -> usize {
-        self.0
-    }
-
-    pub fn get_string(&self, skip: Option<usize>) -> String {
-        if let Some(number) = skip {
-            self.1.repeat(self.0.saturating_sub(number))
-        } else {
-            self.1.repeat(self.0)
+        match (
+            start.contains(word),
+            end.contains(word),
+            reset.contains(word),
+        ) {
+            (true, false, true) | (true, true, true) => {
+                self.0 = 0;
+                self.1 += 1;
+            }
+            (true, true, false) => {
+                self.0 = self.0.saturating_sub(1);
+                self.1 += 1;
+            }
+            (true, _, _) => {
+                self.1 += 1;
+            }
+            (false, true, true) | (false, false, true) => {
+                self.0 = 0;
+                self.1 = 0;
+            }
+            (false, true, false) => {
+                self.0 = self.0.saturating_sub(1);
+                self.1 = self.1.saturating_sub(1);
+            }
+            (false, false, false) => {}
         }
+        self.get_string(word, linebreak)
+    }
+
+    fn get_string(&mut self, word: &str, linebreak: bool) -> String {
+        let indentation: String;
+        if linebreak {
+            indentation = self.2.repeat(self.0);
+        } else {
+            indentation = String::new();
+        }
+        self.0 = self.1;
+        format!("{}{} ", indentation, word)
     }
 }
 
@@ -55,6 +80,11 @@ pub fn formater(settings: &Settings, script_path: PathBuf) -> Result<(), String>
         .tokenize()
         .map_err(|e| format!("{}", e))?;
 
+    let tokens = tokens
+        .iter()
+        .filter(|t| !matches!(t, Token::Whitespace(..)))
+        .collect::<Vec<&Token>>();
+
     match process_format(settings, tokens) {
         Ok(formated_script) => {
             let mut file = OpenOptions::new()
@@ -72,180 +102,54 @@ pub fn formater(settings: &Settings, script_path: PathBuf) -> Result<(), String>
     }
 }
 
-fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, String> {
-    let mut indentation = IndentationCount::new(&settings.tabulation_format);
+fn process_format(settings: &Settings, tokens: Vec<&Token>) -> Result<String, String> {
+    let mut indentation = Indentation::new(&settings.tabulation_format);
     let mut buffer = String::new();
     let mut result = String::new();
     let mut index = 0usize;
 
     while index < tokens.len() {
-        match &tokens[index] {
+        match tokens[index] {
             Token::Word(word) => {
-                match (
-                    result.ends_with("\n"),
-                    settings.indentation_clauses,
-                    word.keyword,
-                ) {
-                    (true, true, Keyword::SELECT) => {
-                        buffer.push_str(&indentation.get_string(None));
-                        indentation.add();
-                    }
-                    (false, true, Keyword::SELECT) => {
-                        buffer.push_str(&indentation.get_string(None));
-                        indentation.add();
-                    }
-                    (true, true, Keyword::FROM | Keyword::WHERE) => {
-                        buffer.push_str(&indentation.get_string(Some(1)));
-                    }
-                    (false, true, Keyword::FROM | Keyword::WHERE) => {
-                        buffer.push('\n');
-                        buffer.push_str(&indentation.get_string(Some(1)));
-                    }
-                    (true, _, _) => {
-                        buffer.push_str(&indentation.get_string(None));
-                    }
-                    (false, _, _) => {}
-                }
+                let value: String;
 
-                let case = settings.keywords_case.as_str();
-                if word.keyword == Keyword::NoKeyword || result.ends_with(".") {
-                    buffer.push_str(&word.value.clone())
-                } else {
-                    let value: String;
-                    match case {
-                        "lowercase" | "lower" => value = word.value.to_lowercase(),
-                        "uppercase" | "upper" => value = word.value.to_uppercase(),
-                        _ => {
-                            return Err(format!(
-                                "Unsupported case : {} in settings :\n{:?}",
-                                case, settings
-                            ));
-                        }
-                    }
+                if word.keyword != Keyword::NoKeyword {
+                    value = apply_case(format!("{}", word), &settings.keywords_case);
 
-                    if !result.ends_with("\n")
-                        && (settings.linebreak_before_keywords.contains(&value)
-                            || settings.linebreak_before_keywords.contains("*"))
+                    if settings.linebreak_before_keywords.contains(&value)
+                        && !result.ends_with("\n")
                     {
                         buffer.push('\n');
                     }
-
-                    buffer.push_str(&value);
-
-                    if settings.linebreak_after_keywords.contains(&value)
-                        || settings.linebreak_after_keywords.contains("*")
+                    buffer.push_str(&mut indentation.update(
+                        settings,
+                        &value,
+                        result.ends_with("\n"),
+                    ));
+                    if settings.linebreak_after_keywords.contains(&value) && !result.ends_with("\n")
                     {
                         buffer.push('\n');
                     }
-                }
-            }
-            Token::EOF => {}
-            Token::Comma => {
-                if settings.linebreak_after_comma {
-                    buffer.push_str(",\n");
                 } else {
-                    buffer.push(',');
-                }
-            }
-            Token::SemiColon => {
-                indentation.sub();
-                if settings.linebreak_after_semicolon {
-                    buffer.push_str(";\n\n")
-                } else {
-                    buffer.push(';');
-                }
-            }
-            Token::LParen => {
-                if settings.linebreak_after_lparenthesis {
-                    buffer.push_str("(\n");
-                } else {
-                    buffer.push('(');
-                }
+                    value = format!("{}", word);
+                    buffer.push_str(&mut indentation.update(
+                        settings,
+                        &value,
+                        result.ends_with("\n"),
+                    ));
 
-                if settings.indentation_parenthesis {
-                    indentation.add();
-                }
-            }
-            Token::LBrace => {
-                if settings.linebreak_after_lbrace {
-                    buffer.push_str("{\n");
-                } else {
-                    buffer.push('{');
-                }
-
-                if settings.indentation_braces {
-                    indentation.add();
-                }
-            }
-            Token::LBracket => {
-                if settings.linebreak_after_lbracket {
-                    buffer.push_str("[\n");
-                } else {
-                    buffer.push('[');
-                }
-
-                if settings.indentation_brackets {
-                    indentation.add();
-                }
-            }
-            Token::RParen => {
-                if settings.linebreak_after_lparenthesis && !result.ends_with("\n") {
-                    buffer.push('\n');
-                }
-
-                if settings.indentation_parenthesis {
-                    buffer.push_str(&indentation.get_string(Some(1)));
-                    indentation.sub();
-                }
-                buffer.push(')');
-            }
-            Token::RBrace => {
-                if settings.linebreak_after_lbrace && !result.ends_with("\n") {
-                    buffer.push('\n');
-                }
-
-                if settings.indentation_braces {
-                    buffer.push_str(&indentation.get_string(Some(1)));
-                    indentation.sub();
-                }
-                buffer.push('}');
-            }
-            Token::RBracket => {
-                if settings.linebreak_after_lbracket && !result.ends_with("\n") {
-                    buffer.push('\n');
-                }
-
-                if settings.indentation_brackets {
-                    buffer.push_str(&indentation.get_string(Some(1)));
-                    indentation.sub();
-                }
-                buffer.push(']');
-            }
-            Token::Whitespace(whitespace) => match whitespace {
-                Whitespace::Newline | Whitespace::Tab => {
-                    if !result.ends_with("\n") && !result.ends_with("\t") {
-                        buffer.push_str(&format!("{}", whitespace));
-                    }
-                }
-                Whitespace::Space => {
-                    if !result.ends_with("\n") && !result.ends_with("\t") {
-                        buffer.push_str(&format!("{}", whitespace));
-                    } else {
-                        buffer.push_str(&indentation.get_string(None));
-                    }
-                }
-                _ => {
-                    if !result.ends_with("\n") {
+                    if settings.linebreak_after_words.contains(&value) && !result.ends_with("\n") {
                         buffer.push('\n');
                     }
-                    buffer.push_str(&format!("{}", whitespace));
                 }
-            },
+            }
             other_token => {
-                if result.ends_with("\n") {
-                    buffer.push_str(&indentation.get_string(None));
+                let value = format!("{}", other_token);
+                buffer.push_str(&mut indentation.update(settings, &value, result.ends_with("\n")));
+
+                if settings.linebreak_after_words.contains(&value) && !result.ends_with("\n") {
+                    buffer.push('\n');
                 }
-                buffer.push_str(&format!("{}", other_token));
             }
         }
 
@@ -255,4 +159,12 @@ fn process_format(settings: &Settings, tokens: Vec<Token>) -> Result<String, Str
     }
 
     Ok(result)
+}
+
+fn apply_case(word: String, case: &str) -> String {
+    match case {
+        "lower" | "lowercase" => word.to_lowercase(),
+        "upper" | "uppercase" => word.to_uppercase(),
+        _ => word,
+    }
 }

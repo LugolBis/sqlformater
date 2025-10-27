@@ -13,12 +13,14 @@ const SETTINGS_PATH: &str = "settings.json";
 
 const DEFAULT_LBA_WORDS: [&str; 4] = [",", "(", "{", ";"];
 const DEFAULT_LBA_KEYWORDS: [&str; 6] = ["SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT"];
-const DEFAULT_IDENT_START: [&str; 9] = [
+
+const DEFAULT_INDENT_START: [&str; 9] = [
     "(", "[", "{", "SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT",
 ];
-const DEFAULT_IDENT_END: [&str; 9] = [
-    ")", "]", "}", "SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT",
-];
+const DEFAULT_INDENT_END: [&str; 3] = [")", "]", "}"];
+
+const DEFAULT_INDENT_RESET: [&str; 7] =
+    [";", "SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT"];
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
@@ -45,6 +47,9 @@ pub struct Settings {
     /// Decrease indentation after the words
     #[serde(deserialize_with = "deserialize_hashset")]
     pub indentation_end: HashSet<String>,
+    /// Reset the indentation adtre the words
+    #[serde(deserialize_with = "deserialize_hashset")]
+    pub indentation_reset: HashSet<String>,
 }
 
 pub struct SavedSettings(pub Settings, pub String);
@@ -65,19 +70,22 @@ impl Default for Settings {
         let linebreak_after_keywords: HashSet<String> =
             HashSet::from_par_iter(DEFAULT_LBA_KEYWORDS.par_iter().map(|val| val.to_string()));
         let indentation_start: HashSet<String> =
-            HashSet::from_par_iter(DEFAULT_IDENT_START.par_iter().map(|val| val.to_string()));
+            HashSet::from_par_iter(DEFAULT_INDENT_START.par_iter().map(|val| val.to_string()));
         let indentation_end: HashSet<String> =
-            HashSet::from_par_iter(DEFAULT_IDENT_END.par_iter().map(|val| val.to_string()));
+            HashSet::from_par_iter(DEFAULT_INDENT_END.par_iter().map(|val| val.to_string()));
+        let indentation_reset: HashSet<String> =
+            HashSet::from_par_iter(DEFAULT_INDENT_RESET.par_iter().map(|val| val.to_string()));
 
         Settings {
             database: "generic".to_string(),
             keywords_case: "uppercase".to_string(),
             tabulation_format: "tab1".to_string(),
             linebreak_after_words,
-            linebreak_after_keywords,
-            linebreak_before_keywords: HashSet::new(),
+            linebreak_after_keywords: linebreak_after_keywords.clone(),
+            linebreak_before_keywords: linebreak_after_keywords,
             indentation_start,
             indentation_end,
+            indentation_reset,
         }
     }
 }
@@ -213,6 +221,11 @@ impl SavedSettings {
                     .par_iter()
                     .map(|val| val.to_lowercase())
                     .collect();
+                settings.indentation_reset = settings
+                    .indentation_reset
+                    .par_iter()
+                    .map(|val| val.to_lowercase())
+                    .collect();
             }
             "uppercase" | "upper" => {
                 settings.indentation_start = settings
@@ -222,6 +235,11 @@ impl SavedSettings {
                     .collect();
                 settings.indentation_end = settings
                     .indentation_end
+                    .par_iter()
+                    .map(|val| val.to_uppercase())
+                    .collect();
+                settings.indentation_reset = settings
+                    .indentation_reset
                     .par_iter()
                     .map(|val| val.to_uppercase())
                     .collect();
@@ -254,6 +272,10 @@ fn parse_tabulation_format(tabulation_format: String) -> String {
         result("\t", tabulation_format.replace("tab", ""))
     } else if tabulation_format.starts_with("space") {
         result(" ", tabulation_format.replace("space", ""))
+    } else if tabulation_format == "\t".repeat(tabulation_format.len()) {
+        tabulation_format
+    } else if tabulation_format == " ".repeat(tabulation_format.len()) {
+        tabulation_format
     } else {
         error!("Unsupported tabulation format : {}", tabulation_format);
         "\t".to_string()
