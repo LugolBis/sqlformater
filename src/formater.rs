@@ -7,6 +7,7 @@ use sqlparser::dialect::{GenericDialect, dialect_from_str};
 use sqlparser::keywords::Keyword;
 use sqlparser::tokenizer::{Token, Tokenizer};
 
+#[derive(Debug, Clone)]
 struct Indentation(usize, usize, String);
 
 impl Indentation {
@@ -14,13 +15,20 @@ impl Indentation {
         Indentation(0, 1, String::from(value))
     }
 
+    fn reset(&mut self) {
+        self.0 = 0;
+        self.1 = 1;
+    }
+
     fn update(&mut self, settings: &Settings, word: &str, linebreak: bool) -> String {
         let (start, end) = (&settings.indentation_start, &settings.indentation_end);
+        let mut local_linebreak = linebreak;
 
         match (start.contains(word), end.contains(word)) {
             (true, true) => {
                 self.1 = self.0;
                 self.0 = self.0.saturating_sub(1);
+                local_linebreak = true;
             }
             (true, false) => {
                 self.0 += 1;
@@ -36,15 +44,14 @@ impl Indentation {
                 }
             }
         }
-        self.get_string(word, linebreak)
+        self.get_string(word, local_linebreak)
     }
 
     fn get_string(&mut self, word: &str, linebreak: bool) -> String {
         let indentation: String;
         if linebreak {
             indentation = self.2.repeat(self.0);
-        }
-        else {
+        } else {
             indentation = "".to_string();
         }
         self.0 = self.1;
@@ -124,13 +131,22 @@ fn process_format(settings: &Settings, tokens: Vec<&Token>) -> Result<String, St
                         linebreak = true;
                     }
                 }
-            }
+            },
+            Token::SemiColon => {
+                result.push_str("\n;\n");
+                indentation.reset();
+            },
             Token::Period => {
                 result.pop();
                 result.push('.');
-            },
+            }
             other_token => {
                 let value = format!("{}", other_token);
+
+                if settings.linebreak_before_words.contains(&value) && !linebreak {
+                    result.push('\n');
+                    linebreak = true;
+                }
                 result.push_str(&mut indentation.update(settings, &value, linebreak));
                 linebreak = false;
 

@@ -11,7 +11,8 @@ use serde::{Deserialize, Serialize};
 const FOLDER_PATH: &str = "sqlformater";
 const SETTINGS_PATH: &str = "settings.json";
 
-const DEFAULT_LBA_WORDS: [&str; 4] = [",", "(", "{", ";"];
+const DEFAULT_LBA_WORDS: [&str; 3] = [",", "(", "{"];
+const DEFAULT_LBB_WORDS: [&str; 2] = [")", "}"];
 const DEFAULT_LBA_KEYWORDS: [&str; 6] = ["SELECT", "FROM", "WHERE", "DELETE", "UPDATE", "INSERT"];
 
 const DEFAULT_INDENT_START: [&str; 9] = [
@@ -34,6 +35,9 @@ pub struct Settings {
     /// It could be anything (ponctuation, etc.)
     #[serde(deserialize_with = "deserialize_hashset")]
     pub linebreak_after_words: HashSet<String>,
+    // Insert linebreak before the words
+    #[serde(deserialize_with = "deserialize_hashset")]
+    pub linebreak_before_words: HashSet<String>,
     /// Insert linebreak after specifieds SQL Keywords
     #[serde(deserialize_with = "deserialize_hashset")]
     pub linebreak_after_keywords: HashSet<String>,
@@ -63,6 +67,8 @@ impl Default for Settings {
     fn default() -> Settings {
         let linebreak_after_words: HashSet<String> =
             HashSet::from_par_iter(DEFAULT_LBA_WORDS.par_iter().map(|val| val.to_string()));
+        let linebreak_before_words: HashSet<String> =
+            HashSet::from_par_iter(DEFAULT_LBB_WORDS.par_iter().map(|val| val.to_string()));
         let linebreak_after_keywords: HashSet<String> =
             HashSet::from_par_iter(DEFAULT_LBA_KEYWORDS.par_iter().map(|val| val.to_string()));
         let indentation_start: HashSet<String> =
@@ -75,6 +81,7 @@ impl Default for Settings {
             keywords_case: "uppercase".to_string(),
             tabulation_format: "tab1".to_string(),
             linebreak_after_words,
+            linebreak_before_words,
             linebreak_after_keywords: linebreak_after_keywords.clone(),
             linebreak_before_keywords: linebreak_after_keywords,
             indentation_start,
