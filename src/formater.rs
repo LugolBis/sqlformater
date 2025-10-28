@@ -23,7 +23,8 @@ impl Indentation {
                 self.0 = self.0.saturating_sub(1);
             }
             (true, false) => {
-                self.1 += 1;
+                self.0 += 1;
+                self.1 += 2;
             }
             (false, true) => {
                 self.0 = self.0.saturating_sub(1);

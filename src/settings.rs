@@ -65,8 +65,6 @@ impl Default for Settings {
             HashSet::from_par_iter(DEFAULT_LBA_WORDS.par_iter().map(|val| val.to_string()));
         let linebreak_after_keywords: HashSet<String> =
             HashSet::from_par_iter(DEFAULT_LBA_KEYWORDS.par_iter().map(|val| val.to_string()));
-        let linebreak_before_keywords: HashSet<String> =
-            HashSet::from_par_iter(DEFAULT_LBA_KEYWORDS.par_iter().map(|val| val.to_string()));
         let indentation_start: HashSet<String> =
             HashSet::from_par_iter(DEFAULT_INDENT_START.par_iter().map(|val| val.to_string()));
         let indentation_end: HashSet<String> =
@@ -77,8 +75,8 @@ impl Default for Settings {
             keywords_case: "uppercase".to_string(),
             tabulation_format: "tab1".to_string(),
             linebreak_after_words,
-            linebreak_after_keywords,
-            linebreak_before_keywords,
+            linebreak_after_keywords: linebreak_after_keywords.clone(),
+            linebreak_before_keywords: linebreak_after_keywords,
             indentation_start,
             indentation_end,
         }
