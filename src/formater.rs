@@ -14,7 +14,7 @@ impl Indentation {
         Indentation(0, 1, String::from(value))
     }
 
-    fn update(&mut self, settings: &Settings, word: &str) -> String {
+    fn update(&mut self, settings: &Settings, word: &str, linebreak: bool) -> String {
         let (start, end) = (&settings.indentation_start, &settings.indentation_end);
 
         match (start.contains(word), end.contains(word)) {
@@ -35,11 +35,17 @@ impl Indentation {
                 }
             }
         }
-        self.get_string(word)
+        self.get_string(word, linebreak)
     }
 
-    fn get_string(&mut self, word: &str) -> String {
-        let indentation = self.2.repeat(self.0);
+    fn get_string(&mut self, word: &str, linebreak: bool) -> String {
+        let indentation: String;
+        if linebreak {
+            indentation = self.2.repeat(self.0);
+        }
+        else {
+            indentation = "".to_string();
+        }
         self.0 = self.1;
         format!("{}{} ", indentation, word)
     }
@@ -102,7 +108,7 @@ fn process_format(settings: &Settings, tokens: Vec<&Token>) -> Result<String, St
                     if settings.linebreak_before_keywords.contains(&value) && !linebreak {
                         result.push('\n');
                     }
-                    result.push_str(&mut indentation.update(settings, &value));
+                    result.push_str(&mut indentation.update(settings, &value, linebreak));
                     linebreak = false;
                     if settings.linebreak_after_keywords.contains(&value) {
                         result.push('\n');
@@ -110,7 +116,7 @@ fn process_format(settings: &Settings, tokens: Vec<&Token>) -> Result<String, St
                     }
                 } else {
                     value = format!("{}", word);
-                    result.push_str(&mut indentation.update(settings, &value));
+                    result.push_str(&mut indentation.update(settings, &value, linebreak));
                     linebreak = false;
                     if settings.linebreak_after_words.contains(&value) {
                         result.push('\n');
@@ -118,9 +124,13 @@ fn process_format(settings: &Settings, tokens: Vec<&Token>) -> Result<String, St
                     }
                 }
             }
+            Token::Period => {
+                result.pop();
+                result.push('.');
+            },
             other_token => {
                 let value = format!("{}", other_token);
-                result.push_str(&mut indentation.update(settings, &value));
+                result.push_str(&mut indentation.update(settings, &value, linebreak));
                 linebreak = false;
 
                 if settings.linebreak_after_words.contains(&value) {
@@ -133,7 +143,6 @@ fn process_format(settings: &Settings, tokens: Vec<&Token>) -> Result<String, St
         index += 1;
     }
 
-    println!("{:?}", result);
     Ok(result)
 }
 
